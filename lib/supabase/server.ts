@@ -14,22 +14,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { exigirAmbiente, lerAmbiente } from "@/lib/ambiente";
 
 type CookieParaGravar = { name: string; value: string; options?: CookieOptions };
 
-function ambiente() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const publicavel = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !publicavel) {
-    throw new Error(
-      "Faltam NEXT_PUBLIC_SUPABASE_URL e/ou NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-    );
-  }
-  return { url, publicavel };
-}
-
 export async function clienteDoServidor() {
-  const { url, publicavel } = ambiente();
+  const { url, publicavel } = exigirAmbiente();
   const cookieStore = await cookies();
   return createServerClient(url, publicavel, {
     cookies: {
@@ -116,7 +106,7 @@ export async function oficinaDaSessao(): Promise<{
 let anonimo: SupabaseClient | null = null;
 
 export function clienteAnonimo(): SupabaseClient {
-  const { url, publicavel } = ambiente();
+  const { url, publicavel } = exigirAmbiente();
   if (!anonimo) {
     anonimo = createClient(url, publicavel, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -130,13 +120,16 @@ export function temChaveSecreta(): boolean {
   return Boolean(process.env.SUPABASE_SECRET_KEY);
 }
 
+/** Reexportado para as telas de diagnóstico não duplicarem a lista de nomes. */
+export { lerAmbiente };
+
 let admin: SupabaseClient | null = null;
 
 export function supabaseAdmin(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const { url } = exigirAmbiente();
   const secreta = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !secreta) {
-    throw new Error("Faltam NEXT_PUBLIC_SUPABASE_URL e/ou SUPABASE_SECRET_KEY.");
+  if (!secreta) {
+    throw new Error("Falta SUPABASE_SECRET_KEY (só o upload de foto depende dela).");
   }
   if (!admin) {
     admin = createClient(url, secreta, {

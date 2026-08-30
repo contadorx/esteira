@@ -8,15 +8,23 @@
  */
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { lerAmbiente } from "@/lib/ambiente";
 
 type CookieParaGravar = { name: string; value: string; options?: CookieOptions };
 
 export async function middleware(request: NextRequest) {
   let resposta = NextResponse.next({ request });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const publicavel = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !publicavel) return resposta;
+  // Antes isto era `if (!url) return resposta;` — desistia calado, e a sessão
+  // parava de ser renovada sem ninguém saber. Falha silenciosa é o pecado
+  // capital deste projeto (regra 1): agora avisa no log e segue, porque a
+  // página em si já mostra o motivo na tela.
+  const { ambiente, motivo } = lerAmbiente();
+  if (!ambiente) {
+    console.error("[esteira] middleware sem ambiente do Supabase:", motivo);
+    return resposta;
+  }
+  const { url, publicavel } = ambiente;
 
   const supabase = createServerClient(url, publicavel, {
     cookies: {

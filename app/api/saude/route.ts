@@ -10,22 +10,28 @@
  * já vai no pacote do navegador) e os 12 primeiros caracteres da chave
  * publicável, o suficiente para reconhecer o formato sem expor a chave.
  */
+import { lerAmbiente } from "@/lib/ambiente";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
-  const chave = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? null;
+  const { ambiente: amb, motivo } = lerAmbiente();
+  const url = amb?.url ?? null;
+  const chave = amb?.publicavel ?? null;
   const secreta = process.env.SUPABASE_SECRET_KEY ?? null;
 
   const ambiente = {
-    NEXT_PUBLIC_SUPABASE_URL: url ? "presente" : "FALTANDO",
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: chave ? "presente" : "FALTANDO",
+    url: url ? "presente" : "FALTANDO",
+    chavePublica: chave ? "presente" : "FALTANDO",
+    motivo,
     SUPABASE_SECRET_KEY: secreta ? "presente" : "faltando (só a foto depende)",
     host: url ? safeHost(url) : null,
     formatoDaChave: chave ? `${chave.slice(0, 12)}… (${chave.length} caracteres)` : null,
     urlTemEspacoOuAspas: url ? /[\s"']/.test(url) : null,
     chaveTemEspacoOuAspas: chave ? /[\s"']/.test(chave) : null,
+    // O que REALMENTE chegou ao processo — é isto que denuncia nome errado.
+    nomesComSupabase: Object.keys(process.env).filter((k) => /SUPABASE/i.test(k)).sort(),
   };
 
   // Ping real: é isto que separa "configuração faltando" de "chave recusada".

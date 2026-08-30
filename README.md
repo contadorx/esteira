@@ -40,6 +40,28 @@ cp .env.example .env.local   # e preencha as chaves (dashboard do Supabase → A
 npm run dev
 ```
 
+## Variáveis de ambiente
+
+Nada nesta aplicação fala com o Supabase pelo navegador — escritório, chão e
+cliente final passam todos por Server Components e Server Actions. Logo o
+prefixo `NEXT_PUBLIC_` **não é necessário**, e sem ele a chave pode ficar como
+Secret na Vercel sem nunca chegar ao navegador.
+
+| variável | para quê |
+|---|---|
+| `SUPABASE_URL` | endereço do projeto |
+| `SUPABASE_ANON_KEY` | chave pública (protegida por RLS) |
+| `SUPABASE_SECRET_KEY` | só o upload da foto do chão |
+
+`NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` continuam
+aceitos. A resolução vive em `lib/ambiente.ts` — um lugar só, que apara aspas e
+espaços colados e, quando não acha, **lista o que chegou ao processo** em vez de
+dizer só "faltando".
+
+**Na Vercel:** mudar variável não afeta implantação já criada. Salve e refaça o
+deploy. Para conferir o que chegou de verdade, abra `/api/saude` — devolve
+booleanos, o host e os nomes presentes, sem expor valor nenhum.
+
 ## Deploy
 
 Deploy contínuo: push na branch `main` (repositório conectado ao projeto `esteira`
