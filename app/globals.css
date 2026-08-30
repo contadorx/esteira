@@ -1,0 +1,172 @@
+/* ─────────────────────────────────────────────────────────────
+   ESTEIRA — base + landing
+   Paleta industrial do mockup: concreto, aço e laranja de segurança.
+   Regra 5 do 05: cor significa SITUAÇÃO, não decoração.
+   Verde/âmbar/vermelho = prazo, só. Aço = ação. Laranja = marca, só.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --concreto: #efede8;
+  --papel: #fbfaf8;
+  --branco: #ffffff;
+  --tinta: #191a1c;
+  --tinta-2: #5c6066;
+  --linha: #dcd8d1;
+  --aco: #1d3a5f;
+  --aco-2: #2c5688;
+  --aco-fraco: #e7edf4;
+  --laranja: #ea5a0b;
+  --ok: #0e7a57;
+  --ok-bg: #e3f3ed;
+  --aperta: #b8730a;
+  --aperta-bg: #fbf0dc;
+  --estourou: #c0392b;
+  --estourou-bg: #fbe9e7;
+  --sombra: 0 1px 2px rgba(25, 26, 28, 0.06),
+    0 10px 26px -14px rgba(25, 26, 28, 0.28);
+  --raio: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--concreto);
+  color: var(--tinta);
+  font: 400 16px/1.6 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 {
+  font-family: "Archivo", "IBM Plex Sans", system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+a { color: var(--aco); }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+:focus-visible { outline: 3px solid var(--aco); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
+
+/* ── botões ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  border-radius: 10px; padding: 13px 22px;
+  font-weight: 600; font-size: 16px; text-decoration: none;
+}
+.btn-aco { background: var(--aco); color: #fff; }
+.btn-aco:hover { background: var(--aco-2); }
+.btn-claro { background: rgba(255, 255, 255, 0.12); color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.35); }
+.btn-claro:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* ── topo/hero ── */
+.hero { background: var(--aco); color: #fff; padding: 26px 0 74px; }
+.hero-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 58px; }
+.marca { display: flex; align-items: center; gap: 11px; }
+.marca svg { width: 38px; height: 38px; flex: none; }
+.marca .n { font-family: "Archivo", sans-serif; font-weight: 700; font-size: 23px; letter-spacing: -0.02em; }
+.badge-obra {
+  margin-left: auto; font-size: 13px; color: #a9c0da;
+  border: 1px solid rgba(169, 192, 218, 0.4); border-radius: 99px; padding: 5px 13px;
+}
+.hero h1 { font-size: clamp(34px, 6vw, 58px); max-width: 17ch; }
+.hero .sub {
+  margin-top: 18px; font-size: clamp(17px, 2.4vw, 21px);
+  color: #cdd9e6; max-width: 56ch;
+}
+.hero .cta { margin-top: 32px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.hero .cta .nota { font-size: 13.5px; color: #a9c0da; }
+.hero .btn-aco { background: var(--laranja); }
+.hero .btn-aco:hover { background: #c94c07; }
+
+/* ── seções ── */
+section { padding: 64px 0; }
+section.alt { background: var(--papel); border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha); }
+.rotulo {
+  font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.09em;
+  color: var(--laranja); font-weight: 600; margin-bottom: 10px;
+}
+section h2 { font-size: clamp(26px, 4vw, 36px); max-width: 24ch; }
+.lede { margin-top: 12px; color: var(--tinta-2); font-size: 17px; max-width: 62ch; }
+
+/* ── a dor ── */
+.dor blockquote {
+  margin-top: 26px; background: var(--branco); border: 1px solid var(--linha);
+  border-left: 5px solid var(--laranja); border-radius: var(--raio);
+  padding: 26px 30px; font-size: clamp(17px, 2.4vw, 20px); line-height: 1.65;
+  max-width: 760px; box-shadow: var(--sombra);
+}
+.dor blockquote footer { margin-top: 14px; font-size: 14px; color: var(--tinta-2); font-style: normal; }
+
+/* ── as três telas ── */
+.telas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; }
+@media (max-width: 860px) { .telas { grid-template-columns: 1fr; } }
+.tela {
+  background: var(--branco); border: 1px solid var(--linha);
+  border-radius: 14px; padding: 24px; box-shadow: var(--sombra);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.tela .quem {
+  align-self: flex-start; font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  background: var(--aco-fraco); color: var(--aco);
+  border-radius: 99px; padding: 3px 10px;
+}
+.tela h3 { font-size: 20px; }
+.tela p { color: var(--tinta-2); font-size: 15px; }
+.tela .mini { margin-top: auto; padding-top: 14px; }
+
+/* mini-visuais em CSS puro */
+.mini-quadro { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mini-col { background: var(--concreto); border-radius: 7px; padding: 6px; display: grid; gap: 5px; }
+.mini-cartao { background: var(--branco); border: 1px solid var(--linha); border-left: 3px solid var(--ok); border-radius: 5px; height: 22px; }
+.mini-cartao.aperta { border-left-color: var(--aperta); }
+.mini-cartao.estourou { border-left-color: var(--estourou); }
+.mini-fone { background: var(--concreto); border-radius: 10px; padding: 10px; display: grid; gap: 7px; }
+.mini-tarefa { background: var(--branco); border: 1px solid var(--linha); border-radius: 7px; padding: 8px 9px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mini-bt { background: var(--aco); color: #fff; border-radius: 6px; padding: 4px 9px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.mini-passos { list-style: none; display: grid; gap: 6px; font-size: 12.5px; }
+.mini-passos li { display: flex; align-items: center; gap: 8px; color: var(--tinta-2); }
+.mini-passos .pt { width: 10px; height: 10px; border-radius: 50%; background: var(--linha); flex: none; }
+.mini-passos li.feito .pt { background: var(--ok); }
+.mini-passos li.atual { color: var(--tinta); font-weight: 600; }
+.mini-passos li.atual .pt { background: var(--branco); border: 2.5px solid var(--aco); }
+
+/* ── radar ── */
+.radar-palco { display: grid; grid-template-columns: 1fr 420px; gap: 36px; align-items: center; margin-top: 30px; }
+@media (max-width: 880px) { .radar-palco { grid-template-columns: 1fr; } }
+.zap { background: #e5ddd5; border-radius: 14px; padding: 16px 14px; box-shadow: var(--sombra); border: 1px solid var(--linha); }
+.zap-cab { font-size: 12px; color: var(--tinta-2); margin-bottom: 10px; text-align: center; }
+.balao {
+  background: #fff; border-radius: 10px; padding: 12px 14px; font-size: 14.5px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08); max-width: 100%;
+}
+.balao + .balao { margin-top: 9px; }
+.balao b { font-weight: 600; }
+.balao ul { margin: 8px 0 0 17px; font-size: 13.5px; }
+.balao li { margin-bottom: 4px; }
+.balao .h { font-size: 10.5px; color: var(--tinta-2); text-align: right; margin-top: 6px; font-family: "IBM Plex Mono", monospace; }
+.radar-txt ul { list-style: none; display: grid; gap: 12px; margin-top: 18px; }
+.radar-txt li { display: flex; gap: 10px; align-items: flex-start; font-size: 15.5px; }
+.radar-txt li .marcador { width: 7px; height: 7px; border-radius: 50%; background: var(--laranja); margin-top: 9px; flex: none; }
+
+/* ── para quem ── */
+.setores { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; max-width: 740px; }
+.setores span {
+  background: var(--branco); border: 1px solid var(--linha); border-radius: 99px;
+  padding: 7px 15px; font-size: 14.5px;
+}
+.criterio { margin-top: 18px; font-size: 15px; color: var(--tinta-2); max-width: 62ch; }
+
+/* ── regras ── */
+.regras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 30px; }
+@media (max-width: 860px) { .regras { grid-template-columns: 1fr; } }
+.regra { background: var(--branco); border: 1px solid var(--linha); border-radius: 12px; padding: 20px 22px; }
+.regra b { display: block; font-size: 16.5px; margin-bottom: 5px; }
+.regra p { font-size: 14.5px; color: var(--tinta-2); }
+
+/* ── cta final + rodapé ── */
+.fim { background: var(--aco); color: #fff; text-align: center; padding: 70px 0; }
+.fim h2 { font-size: clamp(26px, 4vw, 34px); max-width: none; margin: 0 auto; }
+.fim p { color: #cdd9e6; margin-top: 12px; font-size: 16.5px; }
+.fim .btn { margin-top: 26px; background: var(--laranja); color: #fff; }
+.fim .btn:hover { background: #c94c07; }
+footer.pe { padding: 26px 0 40px; color: var(--tinta-2); font-size: 13px; }
+footer.pe .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
