@@ -77,10 +77,18 @@ where email = '<email-do-usuario>';
 | `/app/novo` | cadastro manual | B1 |
 | `/app/importar` | import de CSV com relatório linha a linha | B1 |
 | `/app/etapas` | etapas por tipo de pedido e packs de setor | B2 |
+| `/app/acessos` | links do chão: criar, copiar, PIN, revogar | B4 |
+| `/c/<token>` | **o celular do chão** — sem senha, dois toques | B4 |
 
-Faltam: celular do chão (B4), página pública do pedido (B5), radar (B6). A
-landing não promete data nem preço, e só ganhou o link "Entrar" quando o login
+Faltam: página pública do pedido (B5) e o radar (B6). A landing não promete
+data nem preço, e só ganhou o link "Entrar" (topo, à direita) quando o login
 passou a existir.
+
+**Foto no avanço do chão** exige `SUPABASE_SECRET_KEY` configurada: o upload vai
+pelo service role, depois de a função do banco validar o token. Sem a chave, o
+controle de foto simplesmente não aparece — em vez de aparecer e falhar calado.
+O bucket `avancos` é privado; exibir a foto no escritório pede URL assinada, e
+isso entra com a gaveta do pedido.
 
 **Mover pedido tem dois caminhos, de propósito:** os botões `‹ ›` funcionam em
 toque, teclado e leitor de tela — é o caminho garantido; o arrasto pela alça é
@@ -95,6 +103,7 @@ npm i -D playwright && npx playwright install chromium
 npm run portao:b1     # entrada de pedidos
 npm run portao:b2     # etapas e packs
 npm run portao:b3     # o quadro
+npm run portao:b4     # o celular do chão
 ```
 
 Detalhes e o que o roteiro NÃO prova: `verificacao/LEIA.md`.

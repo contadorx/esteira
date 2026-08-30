@@ -360,3 +360,67 @@ input[aria-invalid="true"] { border-color: var(--estourou); background: var(--es
 .aviso-conflito { margin-top: 16px; background: var(--aperta-bg); border: 1px solid var(--aperta); border-left-width: 5px; border-radius: var(--raio); padding: 14px 18px; }
 .aviso-conflito b { color: var(--aperta); display: block; margin-bottom: 4px; }
 .aviso-conflito p { font-size: 14.5px; }
+
+/* ── o celular do chão (B4) ── */
+/* Alvos ≥56px, texto grande, nada de menu: quem usa está de pé, com a mão
+   suja, no barulho. Tudo aqui é pensado para o polegar. */
+.chao { max-width: 560px; margin: 0 auto; padding: 14px 12px 40px; min-height: 100dvh; }
+.chao-topo { display: flex; align-items: center; gap: 12px; background: var(--aco); color: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.chao-nome { font-family: "Archivo", sans-serif; font-weight: 700; font-size: 19px; }
+.chao-posto { font-size: 13px; color: #cdd9e6; margin-top: 2px; }
+.chao-contador { margin-left: auto; font-family: "Archivo", sans-serif; font-size: 26px; font-weight: 700; }
+.chao-lista { list-style: none; display: grid; gap: 12px; }
+.chao-item { background: var(--branco); border: 1px solid var(--linha); border-left: 5px solid var(--linha); border-radius: 12px; padding: 14px 14px 12px; }
+.chao-item.ok { border-left-color: var(--ok); }
+.chao-item.aperta { border-left-color: var(--aperta); }
+.chao-item.estourou { border-left-color: var(--estourou); }
+.chao-cab { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.chao-num { font-size: 14px; color: var(--tinta-2); }
+.chao-desc { font-size: 18px; font-weight: 600; margin-top: 6px; line-height: 1.35; }
+.chao-meta { font-size: 13.5px; color: var(--tinta-2); margin-top: 4px; }
+.chao-acoes { display: grid; gap: 8px; margin-top: 12px; }
+.chao-btn { min-height: 56px; border-radius: 11px; font-size: 17px; font-weight: 600; padding: 0 18px; }
+.chao-btn.principal { background: var(--aco); color: #fff; }
+.chao-btn.principal:active { background: var(--aco-2); }
+.chao-btn.secundario { background: var(--concreto); color: var(--tinta-2); border: 1px solid var(--linha); min-height: 48px; font-size: 15.5px; }
+.chao-btn:disabled { opacity: 0.55; }
+.chao-confirma { margin-top: 12px; background: var(--aco-fraco); border-radius: 11px; padding: 13px; }
+.chao-pergunta { font-size: 16px; line-height: 1.45; }
+.chao-foto { display: block; margin-top: 10px; font-size: 15px; color: var(--aco); }
+.chao-foto input { margin-top: 5px; font-size: 14px; }
+.chao-texto { width: 100%; margin-top: 9px; font: inherit; font-size: 16px; padding: 10px; border: 1.5px solid var(--linha); border-radius: 9px; }
+.chao-recado { border-radius: 11px; padding: 13px 15px; margin-bottom: 13px; font-size: 15.5px; line-height: 1.45; }
+.chao-recado.bom { background: var(--ok-bg); color: var(--ok); }
+.chao-recado.ruim { background: var(--aperta-bg); color: var(--aperta); }
+.chao-vazio { text-align: center; color: var(--tinta-2); font-size: 16px; padding: 40px 20px; line-height: 1.5; }
+.chao-rodape { text-align: center; color: var(--tinta-2); font-size: 12.5px; margin-top: 26px; }
+.chao-aviso { display: grid; place-content: center; text-align: center; gap: 10px; }
+.chao-aviso h1 { font-size: 24px; }
+.chao-aviso p { color: var(--tinta-2); }
+.chao-aviso .obs { font-size: 14px; max-width: 34ch; margin: 0 auto; }
+/* PIN */
+.chao-pin { display: grid; justify-items: center; align-content: center; gap: 14px; text-align: center; }
+.chao-pin h1 { font-size: 25px; }
+.chao-sub { color: var(--tinta-2); }
+.pin-bolinhas { display: flex; gap: 14px; margin: 6px 0; }
+.pin-bolinha { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--aco); }
+.pin-bolinha.cheia { background: var(--aco); }
+.pin-teclado { display: grid; grid-template-columns: repeat(3, 76px); gap: 12px; margin-top: 8px; }
+.pin-tecla { height: 68px; border-radius: 12px; background: var(--branco); border: 1px solid var(--linha); font-size: 25px; font-family: "IBM Plex Mono", monospace; }
+.pin-tecla:active { background: var(--aco-fraco); }
+.pin-tecla.apagar { font-size: 21px; color: var(--tinta-2); }
+/* acessos (escritório) */
+.acesso-lista { list-style: none; display: grid; gap: 9px; margin-top: 20px; }
+.acesso-linha { display: flex; align-items: center; gap: 12px; background: var(--branco); border: 1px solid var(--linha); border-radius: 10px; padding: 11px 13px; flex-wrap: wrap; }
+.acesso-linha.revogado { opacity: 0.55; }
+.acesso-quem { min-width: 150px; }
+.acesso-quem b { display: block; font-size: 15px; }
+.acesso-posto { font-size: 12.5px; color: var(--tinta-2); }
+.acesso-link { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--tinta-2); background: var(--concreto); padding: 4px 8px; border-radius: 6px; }
+.acesso-pin { display: flex; align-items: center; gap: 6px; }
+.acesso-pin input { width: 86px; text-align: center; font-family: "IBM Plex Mono", monospace; padding: 7px; }
+.acesso-botoes { margin-left: auto; display: flex; gap: 6px; }
+.acesso-novo { display: flex; gap: 9px; margin-top: 14px; flex-wrap: wrap; }
+.acesso-novo input { flex: 1; min-width: 160px; }
+.acesso-novo select { flex: none; width: auto; min-width: 170px; }
+.acesso-novo .campo-pin { flex: none; width: 120px; }

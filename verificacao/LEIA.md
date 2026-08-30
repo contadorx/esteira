@@ -68,6 +68,27 @@ Verifica ainda:
 - a regra 5: a borda do cartão e a pill de prazo contam a mesma situação;
 - o quadro rola dentro da própria faixa, sem empurrar a página de lado.
 
+## `portao-b4.mjs` — o celular do chão
+
+Roda em viewport de celular com toque de verdade (`hasTouch`). Mede o portão do
+bloco:
+
+- o avanço acontece em **dois toques contados** — botão do pedido, depois
+  Confirmar;
+- **dois celulares** com o mesmo pedido: o segundo NÃO recebe "pronto", ouve que
+  alguém marcou antes e onde o pedido está;
+- **token de outra oficina não vê nada**, provado pelo app (regra 11);
+- PIN barra quem tem só o link, e não é pedido de novo no mesmo celular;
+- D1 respeitado: nenhum telefone na tela; alvos ≥56px.
+
+Variáveis: `TOKEN`, `TOKEN_OUTRA`, `TOKEN_PIN`, `PIN`.
+
+**Este portão já pagou por si.** A primeira versão da função `chao_avancar`
+descobria o motivo da recusa *depois*, adivinhando — e respondia "já está na
+última etapa" para um pedido que só não era daquele posto. Recusa certa com
+motivo errado continua sendo violação da regra 2. Hoje `invalido`, `conflito` e
+`fim` são testados separadamente, na mesma ordem, no banco e no roteiro.
+
 ## Armadilhas já pagas
 
 A primeira versão deste roteiro clicava em `button[type=submit]`, que também

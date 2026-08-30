@@ -2,6 +2,12 @@ import { redirect } from "next/navigation";
 import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
 import { sair } from "./acoes";
 
+// Esta rota depende da requisição (sessão em cookie), então NUNCA pode ser
+// pré-renderizada no build: prerender roda sem as variáveis de ambiente e sem
+// cookie, e o build quebrava aqui. Rota de sessão é dinâmica por natureza.
+export const dynamic = "force-dynamic";
+
+
 export default async function LayoutEscritorio({
   children,
 }: {
@@ -43,6 +49,7 @@ export default async function LayoutEscritorio({
             <a href="/app/novo">Novo pedido</a>
             <a href="/app/importar">Importar CSV</a>
             <a href="/app/etapas">Etapas</a>
+            <a href="/app/acessos">Acessos</a>
           </nav>
 
           <div className="app-quem">

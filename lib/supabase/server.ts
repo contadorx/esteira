@@ -72,6 +72,28 @@ export async function oficinaDaSessao(): Promise<{
   return { oficinaId, usuarioId: usuario.id, erro: null };
 }
 
+/**
+ * Cliente ANÔNIMO, sem cookie e sem sessão. É o que as rotas por token usam
+ * (`/c/<token>`, `/p/<token>`): `anon` não enxerga tabela nenhuma, só executa
+ * as funções `security definer` que validam o token por dentro (regra 11).
+ */
+let anonimo: SupabaseClient | null = null;
+
+export function clienteAnonimo(): SupabaseClient {
+  const { url, publicavel } = ambiente();
+  if (!anonimo) {
+    anonimo = createClient(url, publicavel, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return anonimo;
+}
+
+/** Há chave secreta configurada? Quem depende dela precisa saber ANTES. */
+export function temChaveSecreta(): boolean {
+  return Boolean(process.env.SUPABASE_SECRET_KEY);
+}
+
 let admin: SupabaseClient | null = null;
 
 export function supabaseAdmin(): SupabaseClient {
