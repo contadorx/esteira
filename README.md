@@ -51,7 +51,11 @@ Secret na Vercel sem nunca chegar ao navegador.
 |---|---|
 | `SUPABASE_URL` | endereço do projeto |
 | `SUPABASE_ANON_KEY` | chave pública (protegida por RLS) |
-| `SUPABASE_SECRET_KEY` | só o upload da foto do chão |
+| `SUPABASE_SECRET_KEY` | **obrigatória**: autocadastro, criar acesso de pessoa, foto do chão e webhook |
+| `STRIPE_*` | cobrança — opcional; sem elas a tela diz que o pagamento não está ligado |
+| `SITE_URL` | para onde o checkout volta |
+
+Ligar a cobrança: `docs/ligar-a-cobranca.md`.
 
 `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` continuam
 aceitos. A resolução vive em `lib/ambiente.ts` — um lugar só, que apara aspas e
@@ -68,6 +72,60 @@ Deploy contínuo: push na branch `main` (repositório conectado ao projeto `este
 na Vercel). Variáveis de ambiente na Vercel = as mesmas do `.env.example`.
 Antes de caçar qualquer bug em produção: conferir se o commit no ar é o esperado
 (regra 16 — já custou uma rodada inteira no FinanceiroX).
+
+## Antes do piloto
+
+1. `supabase/limpeza-antes-do-piloto.sql` — apaga a massa de teste, o usuário
+   de desenvolvimento (senha em texto claro no GitHub) e os tokens `dev-*`.
+2. `npm run portoes` **contra o banco real** — as verificações nunca correram
+   fora do ambiente de teste.
+3. `supabase/nova-oficina.sql` para criar a oficina do piloto.
+4. `docs/implantacao-do-piloto.md` — o roteiro da tarde na oficina.
+
+## Conta, plano e cobrança (B9–B11)
+
+A oficina nasce sozinha em `/criar-conta`: e-mail, senha, nome e setor, e as
+etapas já vêm aplicadas. Nasce com **14 dias de teste**, sem cartão.
+
+O tenant deixou de vir do `app_metadata` e passou a vir da tabela `membros`
+(D20) — é o que permite mais de uma pessoa por oficina, papel (`dono` /
+`escritorio`) e revogar acesso pela tela. `jwt_oficina()` lê de lá, então
+mudar essa tabela muda a fronteira de isolamento de todas as outras.
+
+**A trava do plano está no banco**, num gatilho de `pedidos` (regra 11):
+teste vencido ou limite estourado recusam INSERT com a frase que a tela
+repassa. E a régua está escrita: o que trava é **cadastrar pedido novo**;
+mover pedido, radar, celular do chão e a página do cliente continuam. Nada é
+apagado.
+
+O webhook é a única porta que escreve "está pago", e é a parte mais perigosa
+do produto — `npm run portao:b11` bate nela com assinatura forjada, assinatura
+de outro segredo, corpo adulterado depois de assinado e relógio fora da
+janela. **O checkout em si nunca rodou contra a Stripe** (não há chave aqui);
+o roteiro para a primeira execução real está em `docs/ligar-a-cobranca.md`.
+
+## A gaveta do pedido (B12)
+
+`/app/pedido/<id>` responde "o que aconteceu com este pedido": o caminho, a
+linha do tempo com quem moveu e quando, a foto do chão (por URL assinada), as
+mensagens copiadas e o link do cliente. "Deu problema" aparece **marcado e
+separado** do avanço — ele grava na mesma etapa, e desenhá-lo como avanço
+contaria uma história que não aconteceu.
+
+## A previsão aprendida (B8)
+
+`/app/tempos` mede, do histórico da própria oficina, quanto cada etapa leva —
+mediana, não média — e soma as etapas que faltam para dizer quando o pedido
+chega. Enquanto uma etapa do caminho não tiver 3 medições, o pedido **não
+ganha data**: somar mediana com chute produziria uma data na tela, e data na
+tela é promessa (regra 2).
+
+Numa oficina nova a tela diz "ainda não sei" — e é isso mesmo. Para ver o
+desenho com dados, `supabase/seed-historico.sql` inventa 12 pedidos já
+concluídos na oficina de desenvolvimento.
+
+A conta em si se prova com `supabase/fumaca-tempos.sql`, contra o banco de
+verdade, com as medianas conferidas na mão.
 
 ## Banco — como mudar o schema
 
@@ -92,20 +150,26 @@ where email = '<email-do-usuario>';
 
 | rota | o que é | bloco |
 |---|---|---|
-| `/` | landing (no ar em produção) | B0 |
+| `/` | landing, com preço e teste de 14 dias | B0/B11 |
+| `/criar-conta` | **autocadastro** — a oficina nasce sozinha | B10 |
 | `/entrar` | login do escritório | B1 |
 | `/app` | **o quadro** — colunas por etapa, botões `‹ ›` e arrasto | B3 |
 | `/app/pedidos` | a lista completa, com KPIs e cor por prazo | B1 |
 | `/app/novo` | cadastro manual | B1 |
 | `/app/importar` | import de CSV com relatório linha a linha | B1 |
 | `/app/radar` | **o radar de atraso** — a função que vende | B6 |
+| `/app/tempos` | **tempos e previsão** — o que cada etapa leva nesta oficina | B8 |
+| `/app/pedido/<id>` | **a gaveta do pedido** — linha do tempo, foto, avisos | B12 |
+| `/app/conta` | plano, uso, pessoas e senha (só o dono) | B9/B11 |
+| `/api/cobranca/webhook` | a única porta que escreve “está pago” | B11 |
 | `/app/etapas` | etapas por tipo de pedido e packs de setor | B2 |
 | `/app/acessos` | links do chão: criar, copiar, PIN, revogar | B4 |
 | `/c/<token>` | **o celular do chão** — sem senha, dois toques | B4 |
 | `/p/<token>` | **a página do cliente final** — sem app, sem senha | B5 |
 | `/api/saude` | diagnóstico de ambiente e conectividade | — |
 
-O MVP está de pé: B0 a B6 entregues, todos com portão batido. A landing não promete
+O MVP está de pé: B0 a B6 entregues, todos com portão batido. A fase 2 começou
+pelo B8 — a **previsão aprendida do histórico**. A landing não promete
 data nem preço, e só ganhou o link "Entrar" (topo, à direita) quando o login
 passou a existir.
 
@@ -131,8 +195,17 @@ npm run portao:b3     # o quadro
 npm run portao:b4     # o celular do chão
 npm run portao:b5     # a página do cliente e o aviso
 npm run portao:b6     # o radar de atraso
-npm run portoes       # todos, em sequência
+npm run portao:b8     # a previsão aprendida (fase 2)
+npm run portao:b9     # conta, plano, pessoas e autocadastro
+npm run portao:b11    # a cobrança (webhook: assinatura forjada, corpo trocado)
+npm run portao:b12    # a gaveta do pedido
+npm run varredura     # as 16 regras, item a item
+npm run portoes       # varredura + todos os portões, em sequência
 ```
+
+Os portões **mudam a base** (o B1 importa 55 pedidos, o B3 move cartões). Rodar
+`npm run portoes` supõe base limpa no começo; encadeado numa base já usada, o
+que falha é o roteiro, não o produto.
 
 Detalhes e o que o roteiro NÃO prova: `verificacao/LEIA.md`.
 

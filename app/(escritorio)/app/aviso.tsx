@@ -13,6 +13,7 @@
  */
 
 import { useState, useTransition } from "react";
+import { horaCurta } from "@/lib/datas";
 import { linkWa, renderizarTexto, type TipoMensagem } from "@/lib/mensagem";
 import { registrarAviso } from "./avisos";
 
@@ -28,14 +29,6 @@ export interface DadosAviso {
   oficina: string;
   base: string;
   ultima: TipoMensagem;
-}
-
-function horaCurta(iso: string): string {
-  return new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  });
 }
 
 export function montarTexto(d: DadosAviso): string {

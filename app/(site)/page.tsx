@@ -35,13 +35,17 @@ export default function Landing() {
           </nav>
           <h1>Todo pedido à vista. Do corte à entrega.</h1>
           <p className="sub">
-            A Esteira mostra em que etapa está cada pedido da sua oficina, avisa
-            o seu cliente sozinha e te cutuca <em>antes</em> do prazo estourar.
-            Sem app para instalar, sem senha para o pessoal da produção.
+            A Esteira mostra em que etapa está cada pedido da sua oficina, deixa
+            a mensagem pronta para você mandar ao cliente e te cutuca{" "}
+            <em>antes</em> do prazo estourar. Sem app para instalar, sem senha
+            para o pessoal da produção.
           </p>
           <div className="cta">
-            <a className="btn btn-aco" href={CTA}>Quero ser uma das primeiras oficinas</a>
-            <span className="nota">Responde quem fez: {EMAIL}</span>
+            <a className="btn btn-aco" href="/criar-conta">
+              Testar 14 dias de graça
+            </a>
+            <a className="btn btn-claro" href="#preco">Ver preço</a>
+            <span className="nota">Sem cartão. Sem instalar nada.</span>
           </div>
         </div>
       </header>
@@ -190,20 +194,74 @@ export default function Landing() {
         </div>
       </section>
 
+
+      {/*
+        Os preços aqui são texto, não consulta: a landing é estática e não
+        pode depender de banco para abrir (foi assim que o deploy quebrou uma
+        vez, ao pré-renderizar rota que precisava de ambiente).
+        O risco disso é a landing dizer um preço e a cobrança fazer outro —
+        então o portão B11 compara, na tela, estes números com os que a tela
+        de conta lê do banco. Não é prevenção; é detecção com prova.
+      */}
+      <section className="preco" id="preco">
+        <div className="wrap">
+          <div className="rotulo">Preço</div>
+          <h2>Uma assinatura por oficina. Gente à vontade.</h2>
+          <p className="lede">
+            A faixa é pelo número de pedidos <b>em andamento</b> — o que já foi
+            entregue não ocupa lugar. Usuários, acessos do chão e mensagens não
+            são cobrados por unidade.
+          </p>
+
+          <div className="preco-grade">
+            <div className="preco-cartao">
+              <div className="preco-nome">Base</div>
+              <div className="preco-valor">R$ 89<span>/mês</span></div>
+              <div className="preco-limite">até 60 pedidos em andamento</div>
+            </div>
+            <div className="preco-cartao destaque">
+              <div className="preco-nome">Médio</div>
+              <div className="preco-valor">R$ 139<span>/mês</span></div>
+              <div className="preco-limite">até 150 pedidos em andamento</div>
+            </div>
+            <div className="preco-cartao">
+              <div className="preco-nome">Grande</div>
+              <div className="preco-valor">R$ 189<span>/mês</span></div>
+              <div className="preco-limite">até 400 pedidos em andamento</div>
+            </div>
+          </div>
+
+          <ul className="preco-notas">
+            <li><b>14 dias de teste</b>, sem cartão.</li>
+            <li>Mensal, sem fidelidade. Cancela quando quiser.</li>
+            <li>
+              Se o teste acabar e você não assinar, <b>nada é apagado</b>: o
+              quadro, o radar e o celular do chão continuam funcionando — só
+              não dá para cadastrar pedido novo.
+            </li>
+          </ul>
+
+          <div className="cta">
+            <a className="btn btn-aco" href="/criar-conta">Testar 14 dias de graça</a>
+          </div>
+        </div>
+      </section>
+
       <div className="fim">
         <div className="wrap">
-          <h2>Estamos escolhendo as primeiras oficinas</h2>
+          <h2>Comece hoje, com os pedidos que já estão na sua oficina</h2>
           <p>
-            A Esteira está em construção, com as primeiras implantações marcadas
-            para setembro. Quer o telefone tocando menos? Chama.
+            Crie a conta, escolha o seu ramo e as etapas já vêm prontas para
+            ajustar. Importe a planilha ou cadastre na mão. Em uma tarde o
+            quadro está de pé.
           </p>
-          <a className="btn" href={CTA}>Quero ser uma das primeiras oficinas</a>
+          <a className="btn" href="/criar-conta">Testar 14 dias de graça</a>
         </div>
       </div>
 
       <footer className="pe">
         <div className="wrap">
-          <span>Esteira · esteira.app.br — em construção</span>
+          <span>Esteira · esteira.app.br</span>
           <span>Contato: <a href={`mailto:${EMAIL}`}>{EMAIL}</a></span>
         </div>
       </footer>

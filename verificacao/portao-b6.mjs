@@ -53,12 +53,14 @@ const medida = await pg.evaluate(() => {
     venceu: kpi("venceu"),
     aperta: kpi("^aperta$"),
     parado: kpi("parado"),
+    // Escopado à lista do radar: desde o B8 existe uma SEGUNDA lista na
+    // mesma tela, com as mesmas classes de desenho e outra régua.
     itens: {
-      venceu: document.querySelectorAll(".radar-item.venceu").length,
-      aperta: document.querySelectorAll(".radar-item.aperta").length,
-      parado: document.querySelectorAll(".radar-item.parado").length,
+      venceu: document.querySelectorAll('[data-teste="lista-radar"] .radar-item.venceu').length,
+      aperta: document.querySelectorAll('[data-teste="lista-radar"] .radar-item.aperta').length,
+      parado: document.querySelectorAll('[data-teste="lista-radar"] .radar-item.parado').length,
     },
-    total: document.querySelectorAll(".radar-item").length,
+    total: document.querySelectorAll('[data-teste="lista-radar"] .radar-item').length,
   };
 });
 
@@ -77,7 +79,9 @@ checa(
 
 // ── 2) Cada item explica o próprio motivo, com número ─────────────
 if (medida.total > 0) {
-  const motivos = await pg.locator(".radar-motivo").allTextContents();
+  const motivos = await pg
+    .locator('[data-teste="lista-radar"] .radar-motivo')
+    .allTextContents();
   // O motivo tem que ser CONCRETO: ou traz um número ("faltam 2 dias e 3
   // etapas"), ou uma referência de tempo exata ("venceu ontem", "vence hoje").
   // Exigir número puro reprovaria "venceu ontem", que é a frase melhor.
@@ -90,7 +94,7 @@ if (medida.total > 0) {
 
   // Vencidos primeiro: quem já estourou tem que estar no topo.
   const ordem = await pg.evaluate(() =>
-    [...document.querySelectorAll(".radar-item")].map((i) =>
+    [...document.querySelectorAll('[data-teste="lista-radar"] .radar-item')].map((i) =>
       i.classList.contains("venceu") ? 1 : i.classList.contains("aperta") ? 2 : 3,
     ),
   );
@@ -111,7 +115,9 @@ if (medida.total > 0) {
 
 // ── 4) A mensagem do radar traz os mesmos pedidos da lista ────────
 const texto = await pg.locator(".radar-copiar .aviso-texto").inputValue();
-const numerosNaTela = await pg.locator(".radar-titulo .mono").allTextContents();
+const numerosNaTela = await pg
+  .locator('[data-teste="lista-radar"] .radar-titulo .mono')
+  .allTextContents();
 const faltandoNoTexto = numerosNaTela.filter((n) => !texto.includes(n.replace("#", "")));
 checa(
   "PORTÃO B6: a mensagem contém exatamente os pedidos da lista",

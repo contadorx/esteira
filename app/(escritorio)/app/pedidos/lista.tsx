@@ -114,7 +114,11 @@ export default function ListaPedidos({
                 const aberto = abertoId === p.id;
                 return [
                   <tr key={p.id}>
-                    <td className="mono">{p.numero}</td>
+                    <td className="mono">
+                      <a className="link-pedido" href={`/app/pedido/${p.id}`}>
+                        {p.numero}
+                      </a>
+                    </td>
                     <td>{p.clienteNome}</td>
                     <td className="desc">{p.descricao ?? "—"}</td>
                     {mostrarTipo && (

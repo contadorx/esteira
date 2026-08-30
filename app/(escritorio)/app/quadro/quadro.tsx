@@ -74,7 +74,15 @@ function Cartao({
 
       <div className="cartao-corpo">
         <div className="cartao-topo">
-          <span className="mono cartao-num">#{cartao.numero}</span>
+          {/*
+            O número do pedido é o caminho para a gaveta (B12). Fica como link
+            e não como clique no cartão inteiro de propósito: o cartão é a
+            área de arrasto, e um cartão que às vezes arrasta e às vezes
+            navega é um cartão que a pessoa deixa de confiar.
+          */}
+          <a className="mono cartao-num" href={`/app/pedido/${cartao.id}`}>
+            #{cartao.numero}
+          </a>
           {cartao.prazo && situacao ? (
             <span className={`pill ${situacao}`}>
               {ROTULO[situacao]} · {curtaBR(cartao.prazo)}

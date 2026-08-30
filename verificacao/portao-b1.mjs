@@ -53,9 +53,17 @@ checa("login: mensagem honesta", msg === "E-mail ou senha não conferem.", msg);
 await pg.fill("#email", EMAIL);
 await pg.fill("#senha", SENHA);
 await pg.click("button[type=submit]");
-await pg.waitForSelector(".tabela tbody tr, .vazio", { timeout: 30000 });
+// ⚠ `/app` era a LISTA quando este roteiro nasceu; desde o B3 é o QUADRO.
+// A espera antiga (`.tabela tbody tr, .vazio`) casava com `.vazio` só quando a
+// oficina não tinha etapa nenhuma — ou seja, passava por acidente numa base
+// vazia e travava numa base de verdade. Regra 15: a ferramenta que previne
+// defeito precisa da mesma revisão que o código.
+await pg.waitForSelector(".cartao, .coluna, .vazio, .falha", { timeout: 30000 });
 checa("login: sessão real entra em /app", pg.url().endsWith("/app"), pg.url());
 
+// A contagem × KPI é da LISTA, que é onde os dois números convivem.
+await pg.goto(`${BASE}/app/pedidos`, { waitUntil: "networkidle" });
+await pg.waitForSelector(".tabela tbody tr, .vazio", { timeout: 30000 });
 const antes = await pg.locator(".tabela tbody tr").count();
 const kpiAntes = Number((await pg.textContent(".kpi .v"))?.trim());
 checa("regra 4: KPI e linhas concordam", kpiAntes === antes, `KPI ${kpiAntes} × ${antes} linhas`);
@@ -82,7 +90,10 @@ checa("relatório traz linha + motivo por rejeitada", motivos.length === 5, `${m
 const texto = motivos.join(" | ");
 for (const [rotulo, agulha] of [
   ["data de calendário (31/02)", "não é data de calendário válida"],
-  ["etapa inexistente", "não existe nesta oficina"],
+  // A mensagem ficou MAIS precisa no B2 (etapa é por tipo de pedido): o
+  // motivo passou a ser `etapa "X" não existe no tipo "Y"`. Quem estava
+  // desatualizado era o roteiro, não o produto.
+  ["etapa inexistente", "não existe no tipo"],
   ["sem número", "sem número do pedido"],
   ["sem cliente", "sem nome do cliente"],
   ["telefone quebrado", "não tem DDD"],
@@ -104,8 +115,9 @@ checa(
   texto2.includes("já existe um pedido com esse número"),
 );
 
-// 6) A lista soma exatamente o que entrou.
-await pg.goto(`${BASE}/app`, { waitUntil: "networkidle" });
+// 6) A lista soma exatamente o que entrou. (A LISTA, não o quadro — /app
+//    virou o quadro no B3, e lá não existe `.tabela`.)
+await pg.goto(`${BASE}/app/pedidos`, { waitUntil: "networkidle" });
 const depois = await pg.locator(".tabela tbody tr").count();
 const kpiDepois = Number((await pg.textContent(".kpi .v"))?.trim());
 checa("lista: antes + 55 = depois", depois === antes + 55, `${antes} + 55 × ${depois}`);

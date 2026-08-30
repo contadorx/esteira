@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
 import PainelRadar from "./painel";
 import type { RespostaRadar } from "./tipos";
+import type { RespostaTempos } from "../tempos/tipos";
 
 export const metadata: Metadata = { title: "Radar de atraso — Esteira" };
 export const dynamic = "force-dynamic";
@@ -10,9 +11,15 @@ export default async function PaginaRadar() {
   const { oficinaId } = await oficinaDaSessao();
   const supabase = await clienteDoServidor();
 
-  const [resRadar, resOficina] = await Promise.all([
+  // Duas contas, de propósito separadas: o radar do B6 (uma etapa por dia,
+  // otimista, vale desde o primeiro dia) e a previsão aprendida do B8 (só
+  // fala quando tem histórico). Misturar as duas numa classificação só
+  // esconderia qual régua acusou o quê — e é justamente a diferença entre
+  // elas que interessa: o que o radar otimista deixa passar.
+  const [resRadar, resOficina, resTempos] = await Promise.all([
     supabase.rpc("radar", { p_oficina: oficinaId }),
     supabase.from("oficinas").select("nome").eq("id", oficinaId ?? "").maybeSingle(),
+    supabase.rpc("tempos", { p_oficina: oficinaId }),
   ]);
 
   // Regra 3: um radar vazio por falha de consulta é a pior tela do produto —
@@ -33,10 +40,15 @@ export default async function PaginaRadar() {
     );
   }
 
+  // Regra 14: a previsão falhar não pode derrubar o radar — mas também não
+  // pode sumir calada, senão a tela vira "não há nada pela conta do histórico"
+  // quando a verdade é "não consegui fazer a conta".
   return (
     <PainelRadar
       dados={resRadar.data as RespostaRadar}
       oficina={resOficina.error ? null : (resOficina.data?.nome ?? null)}
+      tempos={resTempos.error ? null : (resTempos.data as RespostaTempos)}
+      erroTempos={resTempos.error?.message ?? null}
     />
   );
 }

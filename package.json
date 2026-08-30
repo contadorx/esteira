@@ -12,20 +12,25 @@
     "portao:b4": "node verificacao/portao-b4.mjs",
     "portao:b5": "node verificacao/portao-b5.mjs",
     "portao:b6": "node verificacao/portao-b6.mjs",
-    "portoes": "npm run portao:b1 && npm run portao:b2 && npm run portao:b3 && npm run portao:b4 && npm run portao:b5 && npm run portao:b6"
+    "portao:b8": "node verificacao/portao-b8.mjs",
+    "portoes": "npm run varredura && npm run portao:b1 && npm run portao:b2 && npm run portao:b3 && npm run portao:b4 && npm run portao:b5 && npm run portao:b6 && npm run portao:b8 && npm run portao:b9 && npm run portao:b11 && npm run portao:b12",
+    "varredura": "node verificacao/varredura.mjs",
+    "portao:b9": "node verificacao/portao-b9.mjs",
+    "portao:b11": "node verificacao/portao-b11.mjs",
+    "portao:b12": "node verificacao/portao-b12.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@supabase/ssr": "^0.5.2"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.6.0",
-    "playwright": "^1.48.0"
+    "playwright": "^1.56.0",
+    "typescript": "^5.6.0"
   }
 }

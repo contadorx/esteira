@@ -40,9 +40,16 @@ export async function clienteDoServidor() {
 }
 
 /**
- * A oficina do usuário logado, lida do app_metadata (controlado pelo servidor;
- * o usuário não edita). É o mesmo valor que `jwt_oficina()` lê nas policies.
- * Devolve null quando não há sessão — quem chama decide o que fazer.
+ * A sessão inteira numa chamada só: oficina, nome dela e papel do usuário.
+ *
+ * A fonte é `minha_sessao()`, que lê a tabela `membros` — a MESMA fonte que
+ * `jwt_oficina()` usa nas policies (B9). Ler de outro lugar aqui criaria duas
+ * verdades sobre "de quem é este dado", e a que a tela mostra não seria a que
+ * o banco aplica.
+ *
+ * `estado` distingue três coisas que antes viravam a mesma tela em branco:
+ * sem sessão (vá para /entrar), sessão sem oficina (a conta existe mas a
+ * oficina não terminou de nascer) e ok. Regra 3.
  */
 /**
  * `redirect()` e a saída para renderização dinâmica do Next são implementados
@@ -55,11 +62,26 @@ function ehControleDoNext(e: unknown): boolean {
   return typeof digest === "string" && /^(NEXT_|DYNAMIC_SERVER_USAGE)/.test(digest);
 }
 
-export async function oficinaDaSessao(): Promise<{
+export type PapelDoUsuario = "dono" | "escritorio";
+
+export interface Sessao {
+  estado: "sem_sessao" | "sem_oficina" | "ok" | "falha";
   oficinaId: string | null;
+  oficina: string | null;
   usuarioId: string | null;
+  papel: PapelDoUsuario | null;
   erro: string | null;
-}> {
+}
+
+export async function oficinaDaSessao(): Promise<Sessao> {
+  const vazia: Sessao = {
+    estado: "sem_sessao",
+    oficinaId: null,
+    oficina: null,
+    usuarioId: null,
+    papel: null,
+    erro: null,
+  };
   // Nada aqui pode derrubar a página. Configuração faltando ou rede fora viram
   // um `erro` legível que a tela mostra — e não uma exceção que o usuário lê
   // como "Application error" sem nenhuma pista (regras 1 e 2).
@@ -68,11 +90,7 @@ export async function oficinaDaSessao(): Promise<{
     supabase = await clienteDoServidor();
   } catch (e) {
     if (ehControleDoNext(e)) throw e;
-    return {
-      oficinaId: null,
-      usuarioId: null,
-      erro: e instanceof Error ? e.message : String(e),
-    };
+    return { ...vazia, estado: "falha", erro: e instanceof Error ? e.message : String(e) };
   }
 
   let data, error;
@@ -81,8 +99,8 @@ export async function oficinaDaSessao(): Promise<{
   } catch (e) {
     if (ehControleDoNext(e)) throw e;
     return {
-      oficinaId: null,
-      usuarioId: null,
+      ...vazia,
+      estado: "falha",
       erro: `Não consegui falar com o Supabase: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
@@ -90,12 +108,40 @@ export async function oficinaDaSessao(): Promise<{
   if (error) {
     // Sessão ausente é situação normal, não anomalia: não vira erro na tela.
     const ausente = error.message.toLowerCase().includes("session");
-    return { oficinaId: null, usuarioId: null, erro: ausente ? null : error.message };
+    return ausente ? vazia : { ...vazia, estado: "falha", erro: error.message };
   }
-  const usuario = data.user;
-  if (!usuario) return { oficinaId: null, usuarioId: null, erro: null };
-  const oficinaId = (usuario.app_metadata?.oficina_id as string | undefined) ?? null;
-  return { oficinaId, usuarioId: usuario.id, erro: null };
+  if (!data.user) return vazia;
+
+  const { data: sessao, error: erroSessao } = await supabase.rpc("minha_sessao");
+  if (erroSessao) {
+    // Regra 3: não conseguir ler o vínculo é diferente de não ter vínculo. A
+    // primeira frase manda recarregar; a segunda manda criar oficina.
+    return {
+      ...vazia,
+      estado: "falha",
+      usuarioId: data.user.id,
+      erro: `Não consegui ler seu vínculo com a oficina: ${erroSessao.message}`,
+    };
+  }
+
+  const s = sessao as {
+    estado?: string;
+    oficina_id?: string;
+    oficina?: string;
+    papel?: PapelDoUsuario;
+  } | null;
+
+  if (s?.estado !== "ok") {
+    return { ...vazia, estado: "sem_oficina", usuarioId: data.user.id };
+  }
+  return {
+    estado: "ok",
+    oficinaId: s.oficina_id ?? null,
+    oficina: s.oficina ?? null,
+    usuarioId: data.user.id,
+    papel: s.papel ?? "escritorio",
+    erro: null,
+  };
 }
 
 /**

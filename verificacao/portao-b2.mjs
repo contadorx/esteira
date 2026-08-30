@@ -33,7 +33,9 @@ await pg.goto(`${BASE}/entrar`, { waitUntil: "networkidle" });
 await pg.fill("#email", EMAIL);
 await pg.fill("#senha", SENHA);
 await pg.click("button[type=submit]");
-await pg.waitForSelector(".tabela tbody tr, .vazio", { timeout: 30000 });
+// `/app` é o QUADRO desde o B3 — esperar por `.tabela` aqui só passava
+// quando a oficina não tinha etapa nenhuma (regra 15).
+await pg.waitForSelector(".cartao, .coluna, .vazio, .falha", { timeout: 30000 });
 
 // ── 1) A tela carrega e mostra a carga de cada etapa ──────────────
 // Tudo daqui até o item 3 é escopado ao bloco do tipo "padrao": a tela tem
@@ -204,6 +206,30 @@ for (const [nome, w, h] of [
   );
   checa(`layout ${nome}: sem overflow horizontal`, sobra <= 0, `${sobra}px`);
 }
+
+// ── 8) Limpar o que este roteiro criou ─────────────────────────────
+// Um portão que deixa resíduo quebra o próximo: o tipo `crono*` entra antes
+// de "Padrao" na ordenação e desloca a primeira coluna do quadro, e o B3
+// passava a medir a coluna errada. Limpar aqui é parte do roteiro, não
+// higiene opcional — e é feito PELA TELA, que é o único caminho que o
+// usuário tem (a limpeza por SQL continua no rodapé, para o banco real).
+await pg.setViewportSize({ width: 1280, height: 900 });
+await pg.goto(`${BASE}/app/etapas`, { waitUntil: "networkidle" });
+let sobrou = 0;
+for (let volta = 0; volta < 40; volta++) {
+  const bloco = pg.locator("section.tipo-bloco").filter({ hasText: "Crono" });
+  if ((await bloco.count()) === 0) break;
+  const botao = bloco.first().locator(".etapa-linha .remover").first();
+  if ((await botao.count()) === 0) { sobrou = 1; break; }
+  await botao.click();
+  await pg.waitForTimeout(350);
+}
+const restante = await pg.locator("section.tipo-bloco").filter({ hasText: "Crono" }).count();
+checa(
+  "o roteiro não deixa resíduo para o próximo portão",
+  restante === 0 && sobrou === 0,
+  `${restante} bloco(s) crono ainda na tela`,
+);
 
 console.log("\n=== PORTÃO B2 ===");
 ok.forEach((o) => console.log("  ✓", o));

@@ -26,6 +26,10 @@ import { IMPORT_OCIOSO } from "./tipos";
 
 /** Traduz o erro do Postgres no motivo que a tela pode afirmar (regra 2). */
 function motivoDoErro(codigo: string | undefined, texto: string): string {
+  // 23514 é o gatilho do plano (`pedidos_respeita_plano`). A mensagem dele já
+  // é escrita para gente — repassar é melhor que traduzir de novo e arriscar
+  // dizer algo diferente do que o banco decidiu (regra 2).
+  if (codigo === "23514") return texto.replace(/^Não dá para criar pedido novo:\s*/i, "");
   if (codigo === "23505") return "já existe um pedido com esse número nesta oficina";
   if (codigo === "23503") return "etapa informada não pertence a esta oficina";
   if (codigo === "42501" || codigo === "PGRST301")

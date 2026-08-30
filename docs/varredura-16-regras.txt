@@ -1,0 +1,55 @@
+
+═══ VARREDURA DAS 16 REGRAS ═══
+
+✓  1. Falha silenciosa é o pecado capital — toda chamada lê `error`
+      nenhuma escrita ou leitura sem `error`
+
+✓  2. Nunca afirmar o que não foi apurado (nada de “cliente avisado”)
+      nenhuma afirmação sem prova nas telas
+
+✓  3. Falha não vira lista vazia — “ainda não perguntei” é estado próprio
+      todo `?? []` está depois de um tratamento de erro
+
+·  4. Contagem e lista saem da mesma consulta
+      Provado por medição, não por leitura: portão B3 (KPI = soma das colunas = cartões no DOM) e portão B6 (KPI de cada motivo = itens daquele motivo).
+
+✓  5. Verde/âmbar/vermelho só para prazo, sempre com rótulo em texto
+      toda cor de prazo nas telas de pedido vem de situacaoDoPrazo() ou do motivo do radar
+      exceção declarada — app/(escritorio)/app/importar/formulario.tsx: verde/vermelho no relatório de import significam “entrou” e “ficou de fora”, não prazo — é uma tela sem pedido nenhum à vista, sem risco de confusão
+      exceção declarada — app/(site)/page.tsx: ilustração estática do quadro na landing: cartões pintados para MOSTRAR como a cor funciona, sem estado real por trás
+      3 ocorrência(s) cobertas por essas exceções
+
+✓  6. Nenhum componente definido dentro de outro render
+      todos os componentes estão no escopo do módulo
+
+✓  7. Mudança de etapa carrega a condição de estado no `where`
+      quadro: `.eq("etapa_id", esperada)`; chão: `where etapa_id = p_etapa_atual` dentro de chao_avancar. Concorrência provada nos portões B3 e B4.
+
+✓  8. Um único “hoje”, em America/Sao_Paulo, dentro de lib/datas.ts
+      nenhum relógio paralelo
+
+✓  9. Verificação que abre a tela e mede
+      6 portões: portao-b1.mjs, portao-b2.mjs, portao-b3.mjs, portao-b4.mjs, portao-b5.mjs, portao-b6.mjs — todos abrem o navegador, com massa, e medem números
+
+✓ 10. Toda função chamada pelo app existe numa migration do repositório
+      7 funções chamadas pelo app, todas versionadas: chao_avancar, chao_painel, chao_problema, pedido_publico, radar, registrar_aviso_copiado, reordenar_etapas
+
+✓ 11. RLS em todas as tabelas, anon revogado, rotas sem sessão por security definer
+      RLS em 6/6; anon revogado; 5 funções security definer que validam token por dentro: chao_acesso, chao_painel, chao_avancar, chao_problema, pedido_publico
+
+· 12. Compensação repetida pertence ao componente
+      A resolução de variáveis de ambiente estava repetida em três lugares com nomes diferentes (e o middleware desistia calado). Foi unificada em lib/ambiente.ts nesta fase.
+
+· 13. O conserto pode ser pior que o bug — e se a segunda metade falhar?
+      Três lugares onde a pergunta foi feita e respondeu ao desenho: foto do chão sobe DEPOIS do avanço (falha de rede não apaga o trabalho); pack só se aplica em tipo vazio; remover etapa é recusado pela FK, com a contagem apurada depois.
+
+✓ 14. “Não deu” e “deu pela metade” saem por portas diferentes
+      ResultadoImport separa `erroGeral` (não entrou nada) de `inseridos`/`rejeitados` (entrou parte). Medido no portão B1: 55 entram, 5 voltam com linha e motivo.
+
+✓ 15. A própria varredura é testada com canários
+      cada detector mecânico foi testado contra um trecho que DEVE pegar e outro que NÃO pode pegar
+
+✓ 16. Higiene: sem prettier sem config, segredo fora do git, commit conferido
+      sem prettier; .env*.local, node_modules e .next fora do git; conferir o commit no ar antes de caçar bug continua sendo procedimento humano
+
+13 verificadas e limpas · 3 não mecanizáveis (provadas nos portões) · 0 com achado

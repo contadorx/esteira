@@ -9,6 +9,7 @@
 
 begin;
 
+-- `cascade` leva junto `membros` e `assinaturas`, que apontam para oficinas.
 truncate avisos, avancos, acessos, pedidos, etapas, oficinas cascade;
 
 -- ── oficinas (ids fixos para o seed ser re-rodável e referenciável) ──
@@ -18,6 +19,14 @@ insert into oficinas (id, nome) values
   ('a0000000-0000-4000-8000-000000000003', 'Esquadrias Ferreira');
 
 -- ── etapas por oficina ──────────────────────────────────────
+-- Sem assinatura o gatilho `pedidos_respeita_plano` (D22) recusa o primeiro
+-- insert e o seed inteiro falha. Massa de desenvolvimento nasce no plano
+-- maior, com validade longa: ela não existe para testar cobrança.
+insert into assinaturas (oficina_id, plano, status, periodo_ate)
+select id, 'grande', 'ativa', (now() at time zone 'America/Sao_Paulo')::date + 3650
+  from oficinas
+on conflict (oficina_id) do nothing;
+
 insert into etapas (oficina_id, nome, ordem)
 select 'a0000000-0000-4000-8000-000000000001', e.nome, e.ordem
 from (values ('Recebido',1),('Corte',2),('Acabamento',3),('Montagem',4),('Pronto',5),('Entregue',6)) e(nome, ordem);

@@ -1,6 +1,11 @@
 -- ─────────────────────────────────────────────────────────────
 -- nova-oficina.sql — implantação de uma oficina (fase 1).
 --
+-- ⚠ Desde o B10 existe autocadastro: a oficina nasce sozinha em /criar-conta,
+-- com 14 dias de teste. Este script continua aqui para o caso em que VOCÊ cria
+-- a conta (implantação assistida, cliente sem e-mail à mão, migração) — e
+-- porque ele já é assinatura ATIVA, não teste.
+--
 -- Troque os três valores do topo e rode. Depois entre no app com o e-mail e
 -- a senha e aplique o pack do setor em /app/etapas — as etapas ficam por
 -- último de propósito: escolher o pack junto com o dono, olhando a oficina,
@@ -40,6 +45,18 @@ begin
     jsonb_build_object('sub', v_uid::text, 'email', v_email, 'email_verified', true),
     'email', v_email, now(), now(), now()
   );
+
+  -- O vínculo é o que dá acesso (D20). Sem ele o login entra e não vê nada:
+  -- `jwt_oficina()` lê `membros`, não mais o app_metadata.
+  insert into membros (oficina_id, user_id, papel, email)
+  values (v_oficina, v_uid, 'dono', v_email);
+
+  -- E sem assinatura o gatilho do plano recusa o primeiro pedido (D22).
+  -- Implantação assistida nasce ATIVA, não em teste: quem chegou por aqui já
+  -- foi negociado por fora.
+  insert into assinaturas (oficina_id, plano, status, periodo_ate)
+  values (v_oficina, 'medio', 'ativa',
+          (now() at time zone 'America/Sao_Paulo')::date + 30);
 
   raise notice 'Oficina % criada (id %). Login: %', v_nome, v_oficina, v_email;
 end $$;

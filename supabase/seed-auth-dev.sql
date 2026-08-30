@@ -42,13 +42,20 @@ begin
     jsonb_build_object('sub', v_uid::text, 'email', v_email, 'email_verified', true),
     'email', v_email, now(), now(), now()
   );
+
+  -- O que dá acesso é o VÍNCULO, não o app_metadata (D20). Sem esta linha o
+  -- login entra e a oficina não aparece — `jwt_oficina()` lê `membros`.
+  insert into membros (oficina_id, user_id, papel, email)
+  values (v_oficina, v_uid, 'dono', v_email)
+  on conflict (user_id) do update set oficina_id = excluded.oficina_id,
+                                      papel = 'dono', ativo = true;
 end $$;
 
 -- ── Amarrar um usuário JÁ EXISTENTE a uma oficina (o caminho de produção) ──
--- update auth.users
---    set raw_app_meta_data = raw_app_meta_data
---        || jsonb_build_object('oficina_id', '<uuid-da-oficina>')
---  where email = '<email-do-usuario>';
+-- Desde o B9 isto se faz pela TELA: /app/conta → "Adicionar pessoa". Por SQL,
+-- é uma linha em `membros` — e, ao contrário do app_metadata, ela vale na
+-- hora: não é preciso sair e entrar de novo.
 --
--- Depois disso a pessoa precisa sair e entrar de novo: o oficina_id só entra
--- no token quando um token novo é emitido.
+-- insert into membros (oficina_id, user_id, papel, email)
+-- select '<uuid-da-oficina>', u.id, 'escritorio', u.email
+--   from auth.users u where u.email = '<email-do-usuario>';

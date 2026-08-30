@@ -98,11 +98,27 @@ checa(
   recado.includes(numeroAlvo ?? "###") && /→/.test(recado),
   recado,
 );
+// A afirmação é "ESTE pedido saiu", não "a lista encolheu um".
+// Contar era um atalho, e um atalho instável: a lista revalida depois do
+// recado aparecer, então a contagem pegava às vezes o render antigo e o
+// portão piscava vermelho sem defeito nenhum. Portão que pisca ensina a
+// rodar de novo até passar — que é o oposto do que ele serve.
+const saiu = await pg
+  .waitForFunction(
+    (n) =>
+      ![...document.querySelectorAll(".chao-num")].some((x) =>
+        x.textContent.includes(n),
+      ),
+    numeroAlvo,
+    { timeout: 15000 },
+  )
+  .then(() => true)
+  .catch(() => false);
 const depois = await pg.locator(".chao-item").count();
 checa(
   "o pedido sai da lista do posto depois de avançar",
-  depois === antes - 1,
-  `${antes} → ${depois}`,
+  saiu && depois <= antes - 1,
+  `#${numeroAlvo}: ${antes} → ${depois}`,
 );
 
 // ── 4) CONCORRÊNCIA: dois celulares, o mesmo pedido ───────────────

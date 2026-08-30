@@ -57,12 +57,48 @@ export function curtaBR(iso: string): string {
   return m ? `${m[3]}/${m[2]}` : iso;
 }
 
+/**
+ * "Agora" em hora de São Paulo, no formato HH:MM. Existe aqui pelo mesmo
+ * motivo que `hoje()`: para não haver um segundo relógio no projeto (regra 8).
+ * Use apenas para exibir um instante do NAVEGADOR — hora vinda do servidor se
+ * formata a partir do timestamp que ele devolveu.
+ */
+export function agoraHoraCurta(): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
+}
+
+/** Formata um instante conhecido (ISO do servidor) como HH:MM em São Paulo. */
+export function horaCurta(iso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
 /** Situação de prazo — a ÚNICA fonte da cor do produto (regra 5). */
 export type SituacaoPrazo = "ok" | "aperta" | "estourou";
 
-export function situacaoDoPrazo(prazoIso: string): SituacaoPrazo {
-  const dias = diasAteOPrazo(prazoIso);
+/**
+ * A régua, a partir de uma FOLGA em dias — quantos dias sobram entre o que se
+ * espera e o que foi prometido. Negativo = já estourou.
+ *
+ * Existe separada de `situacaoDoPrazo` porque a fase 2 trouxe uma segunda
+ * folga: a que compara a data PREVISTA pelo histórico com o prazo prometido.
+ * Duas telas calculando o mesmo limiar por conta própria é a regra 12
+ * esperando para cobrar — e, na regra 5, um limiar diferente em cada tela
+ * significa que verde deixou de querer dizer a mesma coisa.
+ */
+export function situacaoDaFolga(dias: number): SituacaoPrazo {
   if (dias < 0) return "estourou";
   if (dias <= 2) return "aperta";
   return "ok";
+}
+
+export function situacaoDoPrazo(prazoIso: string): SituacaoPrazo {
+  return situacaoDaFolga(diasAteOPrazo(prazoIso));
 }

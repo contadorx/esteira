@@ -91,8 +91,35 @@ aqui. É por isso que `avancos.quem` guarda `chao:<acesso_id>` ou
 - **D9** Radar entra no MVP como **consulta** + "copiar radar"; envio automático na fase 2.
 - **D10** Site e app no mesmo repositório e projeto Vercel, um host.
 - **D11** `acessos` é tabela própria — mecanismo do D1.
+- **D17** A entrada do pedido também é trilha: gatilho grava `avancos` com
+  `quem = 'entrada:<origem>'` na criação. Sem isso a primeira etapa nunca teria
+  início gravado e jamais seria aprendida. O radar EXCLUI `entrada:%` das
+  contas de avanço — cadastrar não é fazer andar.
+- **D18** A previsão aprendida só fala com **3 medições** por etapa. Abaixo
+  disso a etapa devolve nulo e o pedido inteiro fica sem data, com o motivo
+  dizendo qual etapa falta. Mediana (não média), dias corridos, arredondando
+  para cima. A última etapa de cada caminho é inaprendível por construção
+  (nada sai dela): a pergunta é "quando o pedido CHEGA nela".
+- **D19** As duas réguas convivem SEPARADAS na tela do radar: a otimista do B6
+  (uma etapa por dia, vale desde o dia 1) e a aprendida do B8 (só fala com
+  histórico). Nada de fundir numa classificação só — é a diferença entre elas
+  que interessa, e a segunda lista não entra na mensagem copiada.
+- **D20** O tenant vem da tabela `membros`, não do `app_metadata` (revoga a
+  segunda metade do D12). Um usuário pertence a UMA oficina; papéis `dono` e
+  `escritorio`. `jwt_oficina()` lê de lá, `security definer` para não recursar.
+- **D21** A oficina nasce pelo autocadastro, em uma transação de banco
+  (`criar_oficina`), com 14 dias de teste. O usuário do Auth é criado pelo
+  servidor, já confirmado — sem SMTP, e com o preço disso escrito: ninguém
+  prova que o e-mail é seu.
+- **D22** A trava do plano mora no BANCO (gatilho em `pedidos`). Teste vencido
+  ou limite estourado impedem **criar pedido novo** — e só isso. Mover pedido,
+  radar, chão e página do cliente continuam. Nada é apagado.
+- **D23** Quem escreve "está pago" é o webhook, com service role. Nenhuma ação
+  de tela grava assinatura: bastaria abrir o checkout e fechar a aba.
+- **D24** `lib/cobranca.ts` é a porta única do pagamento, como o `lib/mensagem`
+  é a da mensagem. Trocar Stripe por Asaas é reescrever esse arquivo.
 
-Decisão nova entra como D12, D13… com data e motivo, no `04`. Decisão revogada
+Decisão nova entra como D25, D26… com data e motivo, no `04`. Decisão revogada
 não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 
 ## Rotas (D10)
@@ -103,13 +130,20 @@ não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 /app              escritório (sessão obrigatória) — B1: lista; B3: vira o quadro
 /app/novo         cadastro manual de pedido
 /app/importar     import de CSV
+/app/radar        o radar de atraso                        [B6]
+/app/tempos       tempos por etapa e previsão aprendida     [B8]
+/app/pedido/<id>  a gaveta do pedido                        [B12]
+/app/conta        plano, pessoas e senha (só o dono)         [B9/B11]
+/criar-conta      autocadastro da oficina (público)          [B10]
+/api/cobranca/webhook  a única porta que grava "está pago"   [B11]
 /c/<token>        celular do chão — sem senha              [B4]
 /p/<token>        página pública do pedido                 [B5]
 ```
 
 ## Onde as coisas moram
 
-- `lib/datas.ts` — o **único** "hoje" e a única fonte de situação de prazo.
+- `lib/datas.ts` — o **único** "hoje" e a única fonte de situação de prazo
+  (`situacaoDoPrazo` para hoje × prazo, `situacaoDaFolga` para previsto × prazo).
 - `lib/mensagem.ts` — a porta única (D2). Na fase 1 não existe envio automático:
   `enviarMensagem()` **levanta exceção de propósito**; use `renderizarTexto()` +
   `linkWa()` e registre o aviso com status `copiado`.
@@ -124,9 +158,9 @@ não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 - Supabase `esteira` (org Softaria, `sa-east-1`, ref `llmumuazjcnvpdidndgq`).
 - Vercel: projeto próprio; produção hoje em `esteira-three.vercel.app`,
   domínio final `esteira.app.br`.
-- Auth fase 1: **um usuário por oficina**; o tenant vem de
-  `app_metadata.oficina_id`, lido pelas policies via `jwt_oficina()`.
-  Multiusuário com senha e permissões finas estão **fora** do MVP.
+- Auth: **multiusuário por oficina** desde o B9. O tenant vem da tabela
+  `membros` (D20), lida pelas policies via `jwt_oficina()`. Papéis: `dono`
+  (pessoas e assinatura) e `escritorio` (dia a dia). O chão continua sem conta.
 
 ## Blocos e portões (o `09` tem a íntegra)
 
@@ -140,6 +174,10 @@ não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 | B5 | página do cliente | a tela nunca diz "avisado" — diz "copiado às 14h22" |
 | B6 | radar-consulta | lista exatamente o que a conta manda listar |
 | B7 | site + endurecimento | as 16 regras percorridas com resultado escrito por item |
+| B8 | previsão aprendida (fase 2) | KPI = tabela; amostra curta nunca vira número; sem previsão, o KPI de atraso é traço e não 0 |
+| B9/B10 | conta, pessoas, autocadastro | barra de uso = razão dos dois números; quem não é dono não vê a tela de gente; landing e conta cobram o mesmo |
+| B11 | cobrança | webhook recusa assinatura forjada, corpo adulterado e relógio velho; só o evento legítimo grava |
+| B12 | gaveta do pedido | “deu problema” nunca é desenhado como avanço; foto ausente diz que não se perdeu |
 
 **Bloco fecha pelo portão, nunca pelo calendário.**
 
