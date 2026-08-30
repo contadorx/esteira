@@ -54,13 +54,49 @@ export async function clienteDoServidor() {
  * o usuário não edita). É o mesmo valor que `jwt_oficina()` lê nas policies.
  * Devolve null quando não há sessão — quem chama decide o que fazer.
  */
+/**
+ * `redirect()` e a saída para renderização dinâmica do Next são implementados
+ * como EXCEÇÕES. Um try/catch descuidado os engole e quebra o roteamento sem
+ * dar um pio — então tudo que carrega um digest "NEXT_*" ou "DYNAMIC_*" volta
+ * a ser lançado.
+ */
+function ehControleDoNext(e: unknown): boolean {
+  const digest = (e as { digest?: unknown })?.digest;
+  return typeof digest === "string" && /^(NEXT_|DYNAMIC_SERVER_USAGE)/.test(digest);
+}
+
 export async function oficinaDaSessao(): Promise<{
   oficinaId: string | null;
   usuarioId: string | null;
   erro: string | null;
 }> {
-  const supabase = await clienteDoServidor();
-  const { data, error } = await supabase.auth.getUser();
+  // Nada aqui pode derrubar a página. Configuração faltando ou rede fora viram
+  // um `erro` legível que a tela mostra — e não uma exceção que o usuário lê
+  // como "Application error" sem nenhuma pista (regras 1 e 2).
+  let supabase;
+  try {
+    supabase = await clienteDoServidor();
+  } catch (e) {
+    if (ehControleDoNext(e)) throw e;
+    return {
+      oficinaId: null,
+      usuarioId: null,
+      erro: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  let data, error;
+  try {
+    ({ data, error } = await supabase.auth.getUser());
+  } catch (e) {
+    if (ehControleDoNext(e)) throw e;
+    return {
+      oficinaId: null,
+      usuarioId: null,
+      erro: `Não consegui falar com o Supabase: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
   if (error) {
     // Sessão ausente é situação normal, não anomalia: não vira erro na tela.
     const ausente = error.message.toLowerCase().includes("session");

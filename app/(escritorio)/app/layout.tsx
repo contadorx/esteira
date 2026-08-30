@@ -13,7 +13,31 @@ export default async function LayoutEscritorio({
 }: {
   children: React.ReactNode;
 }) {
-  const { oficinaId } = await oficinaDaSessao();
+  const { oficinaId, erro } = await oficinaDaSessao();
+
+  // Falha de leitura NÃO pode virar redirect para /entrar: /entrar tentaria a
+  // mesma leitura, falharia igual, e o usuário ficaria num pingue-pongue sem
+  // nunca ver o motivo.
+  if (erro) {
+    return (
+      <div className="app-casca">
+        <main className="app-corpo">
+          <div className="wrap-app estreito">
+            <h1>Não consegui abrir o aplicativo</h1>
+            <div className="falha" role="alert">
+              <b>Falhou ao verificar a sessão.</b>
+              <p>{erro}</p>
+              <p className="obs">
+                Isso costuma ser configuração de ambiente faltando ou
+                incorreta. Nenhum pedido foi alterado.
+              </p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!oficinaId) redirect("/entrar");
 
   // Nome da oficina: se a leitura falhar, a barra NÃO inventa um nome nem
