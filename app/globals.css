@@ -194,6 +194,10 @@ footer.pe .wrap { display: flex; justify-content: space-between; gap: 12px; flex
 .entrar-caixa .ajuda { margin-bottom: 12px; }
 .entrar-caixa label { font-size: 13.5px; font-weight: 600; margin-top: 8px; }
 .entrar-caixa .btn { margin-top: 18px; justify-content: center; }
+/* Aço = ação (regra 5). Quem esqueceu a senha precisa achar isto sem procurar,
+   mas não é um alerta: nada está errado com o produto. */
+.esqueci { margin-top: 12px; font-size: 13.5px; text-align: center; color: var(--aco); font-weight: 600; }
+.esqueci:hover { text-decoration: underline; }
 .voltar { margin-top: 14px; font-size: 13.5px; text-align: center; text-decoration: none; color: var(--tinta-2); }
 .voltar:hover { color: var(--aco); }
 
@@ -616,3 +620,132 @@ a.cartao-num:hover { color: var(--aco); text-decoration: underline; }
 .plano-opcao input[type="radio"] { position: absolute; top: 14px; right: 14px; accent-color: var(--aco); width: 17px; height: 17px; }
 .plano-opcao:has(input:checked) { border-color: var(--aco); background: var(--aco-fraco); box-shadow: var(--sombra); }
 .conta-acoes-assinatura { margin-top: 16px; gap: 10px; flex-wrap: wrap; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PÁGINAS DE TEXTO LEGAL (termos, privacidade)
+
+   Coluna estreita de propósito: linha longa demais faz o olho perder a volta,
+   e estas são as duas páginas do produto que alguém realmente lê inteiras.
+   ───────────────────────────────────────────────────────────────────────────── */
+.legal-palco { background: var(--branco); min-height: 100vh; }
+.legal-topo { border-bottom: 1px solid var(--linha); padding: 16px 0; background: var(--aco); }
+.legal-topo .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.legal-topo .marca .n { color: var(--branco); font-weight: 700; font-size: 19px; }
+.legal-nav { display: flex; gap: 18px; font-size: 14px; }
+.legal-nav a { color: #cfd8e4; text-decoration: none; }
+.legal-nav a:hover { color: var(--branco); text-decoration: underline; }
+
+.legal { max-width: 720px; padding: 40px 20px 60px; line-height: 1.65; color: var(--tinta); }
+.legal h1 { font-size: 30px; margin-bottom: 6px; }
+.legal h2 { font-size: 18px; margin: 32px 0 10px; color: var(--aco); }
+.legal p { margin-bottom: 12px; font-size: 15px; }
+.legal ul { margin: 0 0 14px 22px; }
+.legal li { margin-bottom: 8px; font-size: 15px; }
+.legal code { background: var(--concreto); padding: 1px 5px; border-radius: 4px; font-size: 13.5px; }
+.legal-desde { color: var(--tinta-2); font-size: 13.5px; margin-bottom: 20px; }
+.legal-quem { background: var(--concreto); border-radius: 8px; padding: 12px 14px; font-size: 14.5px; }
+/* Pendência de configuração é âmbar de ATENÇÃO na página, não de prazo — e vem
+   com borda e texto, nunca só a cor (regra 5). */
+.legal-pendente { border: 1px solid #d98c00; border-left: 4px solid #d98c00; background: #fff8e8; border-radius: 8px; padding: 12px 14px; font-size: 14.5px; }
+.legal-revisao { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--linha); color: var(--tinta-2); }
+.legal-revisao h2 { margin-top: 0; }
+.legal-revisao p { font-size: 14px; }
+.pe-links { display: flex; gap: 16px; flex-wrap: wrap; }
+.pe-links a { color: var(--tinta-2); }
+
+/* ── Ajustes: o que se configura uma vez (D29) ── */
+.ajustes-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 22px; }
+.ajuste-cartao { display: block; background: var(--branco); border: 1px solid var(--linha); border-radius: 12px; padding: 18px 20px; text-decoration: none; color: var(--tinta); }
+.ajuste-cartao:hover { border-color: var(--aco); box-shadow: var(--sombra); }
+.ajuste-cartao h2 { font-size: 18px; color: var(--aco); margin-bottom: 6px; }
+.ajuste-cartao .linha { font-size: 14.5px; margin-bottom: 8px; }
+.ajuste-cartao .obs { font-size: 13px; color: var(--tinta-2); line-height: 1.5; }
+.ajustes-nota { margin-top: 18px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A ÁREA DE NEGÓCIO (B15)
+
+   Menu LATERAL aqui, e barra superior no app da oficina (D29). Não é
+   incoerência: lá a tela principal é um quadro horizontal, e uma coluna de
+   210px sai do eixo em que as etapas competem por espaço. Aqui o conteúdo é
+   tabela e cartão, e uma coluna vertical tem altura infinita — cabe título de
+   grupo e rótulo comprido, que é o que a barra horizontal não tem onde pôr.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.neg-casca { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; background: var(--concreto); }
+@media (max-width: 860px) { .neg-casca { grid-template-columns: 1fr; } }
+
+.neg-lado { background: var(--aco); color: #cfd8e4; padding: 20px 14px; display: flex; flex-direction: column; gap: 22px; }
+.neg-marca { display: flex; align-items: baseline; gap: 8px; text-decoration: none; }
+.neg-marca .n { font-family: "Archivo", sans-serif; font-weight: 700; font-size: 21px; color: #fff; }
+.neg-etiqueta { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--laranja); font-weight: 600; }
+.neg-grupo-t { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.09em; color: #7d95b1; font-weight: 600; margin-bottom: 8px; }
+.neg-item { display: block; padding: 8px 10px; border-radius: 8px; text-decoration: none; color: #cfd8e4; margin-bottom: 3px; }
+.neg-item:hover { background: rgba(255,255,255,0.09); }
+.neg-item b { display: block; font-size: 14.5px; color: #fff; font-weight: 600; }
+.neg-item span { display: block; font-size: 11.5px; color: #93a9c2; line-height: 1.35; }
+.neg-pe { margin-top: auto; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.neg-voltar { color: #93a9c2; text-decoration: none; }
+.neg-voltar:hover { color: #fff; }
+.neg-pe .sair { color: #93a9c2; font-size: 13px; text-align: left; }
+.neg-pe .sair:hover { color: #fff; text-decoration: underline; }
+
+.neg-corpo { padding: 30px 0 60px; overflow-x: auto; }
+.neg-pagina h1 { font-size: 28px; }
+.neg-secao { font-size: 15px; margin: 34px 0 12px; color: var(--aco); }
+.neg-secao span { font-weight: 400; color: var(--tinta-2); font-size: 14px; }
+
+.neg-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.neg-bloco { background: var(--branco); border: 1px solid var(--linha); border-radius: 10px; padding: 15px 16px; }
+.neg-bloco-t { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tinta-2); font-weight: 600; }
+.neg-bloco-v { font-size: 23px; font-weight: 600; margin-top: 3px; }
+.neg-bloco-n { font-size: 11.5px; color: var(--tinta-2); line-height: 1.45; margin-top: 3px; }
+/* Dinheiro que entrou usa o mesmo verde de "no prazo"? Não. Aqui verde não
+   significa prazo, e por isso o destaque é o AÇO — a cor de ação da casa. */
+.neg-bloco.t-dinheiro .neg-bloco-v { color: var(--aco); }
+.neg-bloco.t-atencao { border-color: var(--estourou); }
+.neg-bloco.t-atencao .neg-bloco-v { color: var(--estourou); }
+.neg-bloco.t-apagado .neg-bloco-v { color: var(--linha); }
+
+.neg-nota-base { background: var(--aco-fraco); border-left: 4px solid var(--aco); border-radius: 8px; padding: 12px 15px; font-size: 14px; line-height: 1.55; margin: 18px 0 4px; }
+.neg-vazio { background: var(--branco); border: 1px dashed var(--linha); border-radius: 10px; padding: 20px; font-size: 14.5px; color: var(--tinta-2); }
+
+.neg-metrica { background: var(--branco); border: 1px solid var(--linha); border-radius: 10px; padding: 18px 20px; }
+.neg-metrica-v { font-size: 38px; font-weight: 700; color: var(--aco); line-height: 1; }
+.neg-metrica .obs { margin-top: 8px; font-size: 13.5px; line-height: 1.55; }
+
+.neg-acoes { list-style: none; display: grid; gap: 8px; }
+.neg-acao { display: flex; align-items: flex-start; gap: 12px; background: var(--branco); border: 1px solid var(--linha); border-left-width: 4px; border-radius: 9px; padding: 12px 15px; }
+.neg-acao.u-alta { border-left-color: var(--estourou); }
+.neg-acao.u-media { border-left-color: var(--aperta); }
+.neg-acao.u-baixa { border-left-color: var(--linha); }
+.selo-urg { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 99px; padding: 3px 9px; white-space: nowrap; margin-top: 2px; }
+.selo-urg.u-alta { background: var(--estourou-bg); color: var(--estourou); }
+.selo-urg.u-media { background: var(--aperta-bg); color: var(--aperta); }
+.selo-urg.u-baixa { background: var(--concreto); color: var(--tinta-2); }
+.neg-acao-txt { flex: 1; }
+.neg-acao-txt b { font-size: 14.5px; }
+.neg-acao-txt p { font-size: 13px; color: var(--tinta-2); line-height: 1.5; margin-top: 2px; }
+.neg-acao-valor { font-size: 13px; color: var(--tinta-2); white-space: nowrap; }
+
+.neg-oficinas { display: grid; gap: 12px; margin-top: 18px; }
+.neg-oficina { background: var(--branco); border: 1px solid var(--linha); border-radius: 11px; padding: 16px 18px; scroll-margin-top: 20px; }
+.neg-oficina header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.neg-oficina h2 { font-size: 18px; }
+.neg-fichas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 20px; }
+.neg-fichas dt { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tinta-2); font-weight: 600; }
+.neg-fichas dd { font-size: 14px; margin-top: 2px; }
+.neg-oficina-pe { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--linha); }
+
+/* Selos: sempre com TEXTO, nunca só cor (regra 5). */
+.selo-neg { font-size: 11.5px; font-weight: 600; border-radius: 99px; padding: 3px 10px; }
+.selo-neg.s-pagando { background: var(--aco-fraco); color: var(--aco); }
+.selo-neg.s-teste { background: var(--concreto); color: var(--tinta-2); }
+.selo-neg.s-vencida { background: var(--estourou-bg); color: var(--estourou); }
+.selo-neg.s-cancelada { background: var(--concreto); color: var(--tinta-2); }
+.selo-neg.s-nenhuma { background: var(--aperta-bg); color: var(--aperta); }
+.selo-fat { font-size: 11.5px; font-weight: 600; border-radius: 99px; padding: 2px 9px; }
+.selo-fat.f-paga { background: var(--aco-fraco); color: var(--aco); }
+.selo-fat.f-aberta { background: var(--concreto); color: var(--tinta-2); }
+.selo-fat.f-vencida { background: var(--estourou-bg); color: var(--estourou); }
+.selo-fat.f-devolvida { background: var(--aperta-bg); color: var(--aperta); }
+.selo-fat.f-outra { background: var(--aperta-bg); color: var(--aperta); }

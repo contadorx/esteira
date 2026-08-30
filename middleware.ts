@@ -49,5 +49,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/entrar"],
+  // `/negocio` entra pelo mesmo motivo que `/app`: é área de sessão longa, e
+  // sem a renovação do cookie a pessoa é jogada para /entrar no meio do
+  // trabalho. `/nova-senha` entra porque a sessão que a sustenta veio do link
+  // do e-mail — deixá-la sem renovação faria a troca de senha falhar em quem
+  // demora dois minutos escolhendo a senha.
+  matcher: ["/app/:path*", "/negocio/:path*", "/entrar", "/nova-senha"],
 };

@@ -51,6 +51,14 @@ export default function FormularioEntrada() {
           {enviando ? "Entrando…" : "Entrar"}
         </button>
 
+        {/* Fica DEPOIS do botão e antes do rodapé: quem errou a senha olha
+            exatamente para cá. Antes desta linha, quem esquecia a senha não
+            tinha caminho nenhum — a oficina seguia rodando e o escritório
+            ficava trancado do lado de fora. */}
+        <a className="esqueci" href="/recuperar">
+          Esqueci minha senha
+        </a>
+
         <a className="voltar" href="/">
           ← voltar para o site
         </a>

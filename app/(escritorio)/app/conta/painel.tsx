@@ -24,7 +24,33 @@ import {
   trocarMinhaSenha,
 } from "./acoes";
 import { CONTA_OCIOSA, emReais } from "./tipos";
-import type { Membro, Plano, RespostaConta, ResultadoConta } from "./tipos";
+import type {
+  Membro,
+  MinhaFatura,
+  Plano,
+  RespostaConta,
+  ResultadoConta,
+} from "./tipos";
+
+/** A leitura do status, escrita para o dono da oficina — não em inglês. */
+const SITUACAO_FATURA: Record<MinhaFatura["situacao"], string> = {
+  paga: "paga",
+  aberta: "em aberto",
+  vencida: "vencida",
+  devolvida: "devolvida",
+  outra: "conferir",
+};
+
+/** Data só quando existe. "—" é resposta; "Invalid Date" não é (regra 8). */
+const diaBr = (iso: string | null) =>
+  iso ? new Date(iso + "T12:00:00").toLocaleDateString("pt-BR") : "—";
+
+const reaisBr = (v: number | string | null) => {
+  const n = typeof v === "string" ? Number(v) : v;
+  return n !== null && Number.isFinite(n)
+    ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : "—";
+};
 
 const ROTULO_STATUS: Record<string, string> = {
   teste: "em teste",
@@ -68,6 +94,8 @@ export default function PainelConta({
   planos,
   erroPlanos,
   cobrancaLigada,
+  faturas,
+  erroFaturas,
 }: {
   conta: RespostaConta;
   oficina: string | null;
@@ -78,6 +106,8 @@ export default function PainelConta({
   planos: Plano[];
   erroPlanos: string | null;
   cobrancaLigada: boolean;
+  faturas: MinhaFatura[];
+  erroFaturas: string | null;
 }) {
   const [resConvite, acaoConvite, convidando] = useActionState(convidarPessoa, CONTA_OCIOSA);
   const [resSenha, acaoSenha, trocando] = useActionState(trocarMinhaSenha, CONTA_OCIOSA);
@@ -292,6 +322,70 @@ export default function PainelConta({
                 </div>
               )}
             </>
+          )}
+        </section>
+      )}
+
+      {/* ── AS MINHAS COBRANÇAS (D30) ─────────────────────────────────────
+          "Cadê o meu boleto" é a pergunta que mais gera ligação numa
+          assinatura — e ela só tem resposta porque o webhook passou a gravar
+          cada cobrança DEPOIS de conferi-la na API do Asaas. Antes disso,
+          `assinaturas` guardava só o estado atual e cada pagamento
+          sobrescrevia o anterior: não havia o que mostrar aqui. */}
+      {ehDono && (
+        <section className="conta-bloco">
+          <h2>Minhas cobranças</h2>
+
+          {erroFaturas ? (
+            <div className="falha" role="alert">
+              <b>Não consegui ler as suas cobranças.</b>
+              <p>{erroFaturas}</p>
+              <p className="obs">
+                Isto <b>não</b> quer dizer que não há cobrança — quer dizer que
+                não consegui olhar (regra 3).
+              </p>
+            </div>
+          ) : faturas.length === 0 ? (
+            <p className="ajuda">
+              Nenhuma cobrança emitida ainda. Enquanto o teste estiver correndo,
+              não há nada a pagar.
+            </p>
+          ) : (
+            <table className="tabela">
+              <thead>
+                <tr>
+                  <th>Vencimento</th>
+                  <th>Pago em</th>
+                  <th className="num">Valor</th>
+                  <th>Situação</th>
+                  <th>Boleto / Pix</th>
+                </tr>
+              </thead>
+              <tbody>
+                {faturas.map((f, i) => (
+                  <tr key={`${f.vencimento}-${i}`}>
+                    <td>{diaBr(f.vencimento)}</td>
+                    <td>{diaBr(f.pago_em)}</td>
+                    <td className="num mono">{reaisBr(f.valor)}</td>
+                    {/* Nunca só a cor (regra 5): a situação vem escrita. */}
+                    <td>
+                      <span className={`selo-fat f-${f.situacao}`}>
+                        {SITUACAO_FATURA[f.situacao]}
+                      </span>
+                    </td>
+                    <td>
+                      {f.link ? (
+                        <a href={f.link} target="_blank" rel="noreferrer">
+                          abrir no Asaas
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       )}

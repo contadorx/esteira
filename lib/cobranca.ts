@@ -133,6 +133,23 @@ async function chamar(
 
 const texto = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 
+/**
+ * O valor da cobrança, para o extrato (D30).
+ *
+ * O Asaas manda `value` como número em JSON, mas um valor que chega como
+ * string ("139.00") não pode virar `null` em silêncio — seria uma fatura
+ * gravada sem valor, e o painel somaria menos do que entrou sem dizer nada.
+ * Devolve `null` só quando realmente não dá para ler um número.
+ */
+const numero = (v: unknown): number | null => {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
 /** Só dígitos: o Asaas recusa CPF/CNPJ com ponto e traço em alguns fluxos. */
 export function soDigitos(v: string): string {
   return v.replace(/\D/g, "");
@@ -276,11 +293,16 @@ export async function conferirCobranca(cobrancaId: string): Promise<{
   assinatura: string | null;
   cliente: string | null;
   referencia: string | null;
+  /** os três campos abaixo existem para o extrato (D30), não para liberar acesso */
+  valor: number | null;
+  pagoEm: string | null;
+  link: string | null;
   sumiu: boolean;
   erro: string | null;
 }> {
   const vazio = {
     status: null, vencimento: null, assinatura: null, cliente: null, referencia: null,
+    valor: null, pagoEm: null, link: null,
   };
   const { dados, erro, httpStatus } = await chamar("GET", `/payments/${cobrancaId}`);
   // 404 é resposta, não falha: essa cobrança não existe no Asaas — é o que
@@ -294,6 +316,13 @@ export async function conferirCobranca(cobrancaId: string): Promise<{
     assinatura: texto(dados?.subscription),
     cliente: texto(dados?.customer),
     referencia: texto(dados?.externalReference),
+    valor: numero(dados?.value),
+    // `paymentDate` é quando o Asaas registrou o pagamento; `clientPaymentDate`
+    // é quando o cliente diz que pagou. Para o extrato vale o primeiro, e o
+    // segundo só quando o primeiro não veio. Cobrança em aberto não tem
+    // nenhum dos dois — e aí `pago_em` fica nulo, que é a verdade.
+    pagoEm: texto(dados?.paymentDate) ?? texto(dados?.clientPaymentDate),
+    link: texto(dados?.invoiceUrl),
     sumiu: false,
     erro: null,
   };

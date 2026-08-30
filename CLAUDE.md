@@ -135,6 +135,38 @@ aqui. É por isso que `avancos.quem` guarda `chao:<acesso_id>` ou
   cadastro — o teste segue sem fricção) e **não é guardado no nosso banco**.
   O produto não guarda cadastro; a fronteira vale para o que é nosso também.
 
+- **D29** O app da oficina fica na **barra superior**, cortada de nove para
+  **cinco** itens (Quadro · Radar · Pedidos · Tempos · Ajustes); a área de
+  negócio nasce com **menu lateral**. Não é incoerência: lá a tela principal é
+  um quadro horizontal, e uma coluna de 210px sai do eixo em que as etapas
+  competem por espaço; aqui o conteúdo é tabela e cartão, e coluna vertical tem
+  altura infinita (cabe grupo e rótulo comprido). "Novo pedido" e "Importar
+  CSV" saíram do menu: são **ações**, não lugares, e já existem como botão.
+- **D30** O webhook grava cada cobrança conferida em **`faturas`**.
+  `assinaturas` tem `oficina_id` como chave primária — guarda o estado atual, e
+  cada pagamento sobrescreve o anterior. Sem esta tabela, "quanto entrou em
+  outubro" não é consulta difícil: é impossível. É o único item da área de
+  negócio com **prazo** — o que não for gravado antes do 1º pagamento se perde.
+- **D31** `/negocio` é rota própria, **fora** do grupo `(escritorio)`: aquele
+  layout exige vínculo com oficina e `membros` tem `unique (user_id)`. Quem
+  opera o negócio não é membro de oficina nenhuma e não deve virar um.
+- **D32** Quem é da equipe mora em tabela própria (`equipe`), não numa coluna
+  em `membros`: o poder de ver **todas** as oficinas não pode depender de uma
+  linha da tabela que a RLS multi-tenant protege. A trava é `painel_negocio()`,
+  que devolve `null` para quem não é equipe — a tela só repete (regra 11).
+- **D33** MRR e caixa são **dois blocos separados** e nunca se somam. MRR é
+  promessa (o que a base vale por mês se todo mundo ficar); caixa é o que
+  entrou. Falha de leitura vira aviso escrito, **nunca R$ 0** (regra 3).
+- **D34** As réguas de cobrança e de ativação nascerão **copiar-e-colar**, como
+  o radar (D9): não há SMTP (D21) nem canal pago (D3). [B16, não feito]
+- **D35** Entrar na conta de uma oficina (suporte) só com auditoria gravada
+  **ANTES**, e falha de gravar **impede** a entrada. [B17, não feito]
+- **D36** A recuperação de senha existe e sai pelo servidor de e-mail do
+  Supabase, com o limite escrito na tela e o WhatsApp ao lado. Antes disso o
+  produto era um SaaS de autocadastro **sem nenhuma forma de destravar quem
+  esquece a senha** — a oficina seguia rodando, a cobrança seguia saindo, e o
+  escritório ficava trancado do lado de fora.
+
 Decisão nova entra como D25, D26… com data e motivo, no `04`. Decisão revogada
 não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 
@@ -151,7 +183,16 @@ não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 /app/pedido/<id>  a gaveta do pedido                        [B12]
 /app/conta        plano, pessoas e senha (só o dono)         [B9/B11]
 /criar-conta      autocadastro da oficina (público)          [B10]
+/app/ajustes      etapas · acessos · conta (o corte do menu)  [B15]
+/recuperar        esqueci minha senha (público)                [B15]
+/nova-senha       escolher a senha nova (link do e-mail)       [B15]
+/termos           termos de uso (público)                      [B15]
+/privacidade      política de privacidade — LGPD (público)     [B15]
+/negocio          painel do negócio — só a equipe              [B15]
+/negocio/oficinas a lista e o suporte                          [B15]
+/negocio/faturas  o extrato do dinheiro                        [B15]
 /api/cobranca/webhook  a única porta que grava "está pago"   [B11]
+/api/auth/recuperar    onde o link do e-mail de senha cai      [B15]
 /c/<token>        celular do chão — sem senha              [B4]
 /p/<token>        página pública do pedido                 [B5]
 ```
@@ -166,6 +207,10 @@ não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 - `lib/supabase/server.ts` — cliente do servidor (respeita RLS, sessão por cookie)
   e o admin (service role, só onde for inevitável).
 - `lib/csv.ts` — parser tolerante e normalização de data.
+- `lib/negocio.ts` — a área de negócio: uma chamada só (`painel_negocio`), três
+  estados nomeados (`restrito | falha | ok`) e as contas de dinheiro.
+- `lib/contato.ts` — o canal de suporte e a identificação da empresa, num lugar
+  só: aparecem na landing, na recuperação de senha e nas duas páginas legais.
 - `supabase/migrations/` — todo SQL aplicado, no mesmo dia.
 - `supabase/seed.sql` — massa de dev. **Nunca rodar em produção com piloto.**
 
@@ -194,6 +239,7 @@ não se apaga: ganha a linha "revogada em <data> porque <motivo>".
 | B9/B10 | conta, pessoas, autocadastro | barra de uso = razão dos dois números; quem não é dono não vê a tela de gente; landing e conta cobram o mesmo |
 | B11 | cobrança | webhook recusa assinatura forjada, corpo adulterado e relógio velho; só o evento legítimo grava |
 | B12 | gaveta do pedido | “deu problema” nunca é desenhado como avanço; foto ausente diz que não se perdeu |
+| B15 | pronto para vender: faturas, área de negócio, senha, legais, menu | quem não é da equipe recebe “restrito” pelo app; consulta que falha nunca vira R$ 0; MRR do topo = soma da lista; o webhook grava a fatura no mesmo evento que libera acesso |
 
 **Bloco fecha pelo portão, nunca pelo calendário.**
 

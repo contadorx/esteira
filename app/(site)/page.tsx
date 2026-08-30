@@ -1,4 +1,8 @@
-const EMAIL = "leandropucsp@gmail.com";
+import { emailDeSuporte } from "@/lib/contato";
+
+// Um lugar só para o canal de contato (regra 12): ele aparece aqui, na
+// recuperação de senha e nas duas páginas legais.
+const EMAIL = emailDeSuporte();
 const ASSUNTO = encodeURIComponent("Esteira — quero ser uma das primeiras oficinas");
 const CORPO = encodeURIComponent(
   "Oi, Leandro. Tenho uma oficina e quero conhecer a Esteira.\n\nMeu ramo: \nCidade: \nPedidos em andamento (mais ou menos): ",
@@ -259,10 +263,16 @@ export default function Landing() {
         </div>
       </div>
 
+      {/* Termos e privacidade não são enfeite de rodapé: sem eles não se abre
+          conta de pagamento nem se fecha com cliente que lê contrato. */}
       <footer className="pe">
         <div className="wrap">
           <span>Esteira · esteira.app.br</span>
-          <span>Contato: <a href={`mailto:${EMAIL}`}>{EMAIL}</a></span>
+          <span className="pe-links">
+            <a href="/termos">Termos de uso</a>
+            <a href="/privacidade">Privacidade</a>
+            <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+          </span>
         </div>
       </footer>
     </>

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
 import { cobrancaLigada } from "@/lib/cobranca";
 import PainelConta from "./painel";
-import type { Membro, Plano, RespostaConta } from "./tipos";
+import type { Membro, MinhaFatura, Plano, RespostaConta } from "./tipos";
 
 export const metadata: Metadata = { title: "Conta — Esteira" };
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function PaginaConta() {
   const ehDono = papel === "dono";
 
   const supabase = await clienteDoServidor();
-  const [resConta, resMembros, resPlanos] = await Promise.all([
+  const [resConta, resMembros, resPlanos, resFaturas] = await Promise.all([
     supabase.rpc("minha_conta"),
     ehDono
       ? supabase
@@ -25,6 +25,10 @@ export default async function PaginaConta() {
           .order("criado_em", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
     supabase.from("planos").select("codigo, nome, preco_centavos, limite_pedidos_ativos, ordem").order("ordem"),
+    // "Cadê o meu boleto" é a pergunta que mais gera ligação numa assinatura,
+    // e ela tem resposta desde que o webhook passou a gravar cada cobrança
+    // conferida (D30). A RLS de `faturas` deixa a oficina ver só as próprias.
+    supabase.rpc("minhas_faturas"),
   ]);
 
   // Regra 3: falha de leitura não pode virar "sem plano" nem "sem gente".
@@ -55,6 +59,8 @@ export default async function PaginaConta() {
       planos={(resPlanos.data ?? []) as Plano[]}
       erroPlanos={resPlanos.error?.message ?? null}
       cobrancaLigada={cobrancaLigada()}
+      faturas={(resFaturas.data ?? []) as MinhaFatura[]}
+      erroFaturas={resFaturas.error?.message ?? null}
     />
   );
 }

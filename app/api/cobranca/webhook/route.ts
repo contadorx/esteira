@@ -86,6 +86,58 @@ async function gravar(oficinaId: string, patch: PatchAssinatura) {
   return supabaseAdmin().from("assinaturas").update(patch).eq("oficina_id", oficinaId);
 }
 
+/**
+ * O EXTRATO (D30) — grava o fato, não só o estado.
+ *
+ * `assinaturas` guarda o estado atual: cada pagamento sobrescreve o anterior.
+ * Aqui a cobrança vira LINHA, com o status cru que o Asaas respondeu na
+ * conferência autenticada. Sem isto, "quanto entrou em outubro" não é uma
+ * consulta difícil — é uma consulta impossível, porque o dado nunca existiu.
+ *
+ * Grava SEMPRE que a cobrança tem dono, inclusive quando ela não muda acesso
+ * nenhum: uma cobrança em aberto ou vencida é exatamente o que o extrato e a
+ * régua de cobrança precisam enxergar.
+ *
+ * `upsert` e não `insert`: a mesma cobrança é anunciada várias vezes
+ * (PENDING → CONFIRMED → RECEIVED) e o Asaas reenvia por desenho quando a
+ * resposta não é 200. A chave única é do PROVEDOR, não nossa — e é isso que
+ * faz o reenvio ser seguro: rodar duas vezes dá o mesmo resultado.
+ */
+async function gravarFatura(
+  oficinaId: string,
+  cobrancaId: string,
+  c: {
+    status: string | null;
+    vencimento: string | null;
+    assinatura: string | null;
+    valor: number | null;
+    pagoEm: string | null;
+    link: string | null;
+  },
+) {
+  return supabaseAdmin()
+    .from("faturas")
+    .upsert(
+      {
+        oficina_id: oficinaId,
+        provedor: "asaas",
+        provedor_cobranca: cobrancaId,
+        provedor_assinatura: c.assinatura,
+        valor: c.valor,
+        vencimento: c.vencimento,
+        pago_em: c.pagoEm,
+        // O status vai CRU. `situacao` é coluna gerada no banco, para a
+        // leitura não ter duas definições (regra 12).
+        status: c.status ?? "DESCONHECIDO",
+        link: c.link,
+        // `visto_em` é carimbado pelo gatilho do banco. Um `new Date()` aqui
+        // seria um segundo relógio no produto (regra 8) — e foi exatamente o
+        // defeito que a varredura achou neste arquivo no B11.
+      },
+      { onConflict: "provedor,provedor_cobranca" },
+    );
+}
+
 export async function POST(req: Request) {
   const conferencia = conferirToken(req.headers.get("asaas-access-token"));
   if (!conferencia.ok) {
@@ -113,8 +165,14 @@ export async function POST(req: Request) {
 
   let patch: PatchAssinatura | null = null;
   let motivo: string;
-  let assinaturaId: string | null = null;
-  let referencia: string | null = null;
+  // Gravar o EXTRATO e liberar ACESSO são duas coisas diferentes, e a ordem
+  // importa: uma cobrança em aberto não muda acesso nenhum e mesmo assim
+  // precisa entrar no extrato (é o que a régua de cobrança vai ler). Por isso
+  // a oficina é procurada ANTES de decidir o efeito, e não depois — nos dois
+  // ramos, para não sobrar um caminho em que "não consegui procurar" se
+  // confunda com "não achei" (regra 3).
+  let oficinaId: string;
+  let fatura: "registrada" | "nao_se_aplica" = "nao_se_aplica";
 
   if (leitura.acao === "conferir_cobranca") {
     const c = await conferirCobranca(leitura.cobrancaId);
@@ -133,8 +191,31 @@ export async function POST(req: Request) {
         motivo: "essa cobrança não existe no Asaas — nada foi liberado",
       });
     }
-    assinaturaId = c.assinatura;
-    referencia = c.referencia;
+
+    const dono = await acharOficina(c.assinatura, c.referencia);
+    if (dono.erro) return falha(`não consegui achar a oficina (${dono.erro})`, 500);
+    if (!dono.oficinaId) {
+      // 200 de propósito: reenviar não vai fazer a oficina aparecer. E sem
+      // dono a fatura também não é gravada — cobrança órfã não entra no
+      // extrato de ninguém.
+      console.error("[cobranca] cobrança conferida e SEM dono:", c.assinatura, c.referencia);
+      return ok({
+        estado: "ignorado",
+        motivo: "não achei a oficina desta cobrança — nada foi liberado",
+      });
+    }
+
+    // O extrato vem primeiro porque ele é o FATO. Falhar aqui é 500 e o Asaas
+    // reenvia; o `upsert` é idempotente, então repetir é seguro (regra 13: o
+    // conserto não pode ser pior que o bug — reenviar não duplica nada).
+    const { error: erroFatura } = await gravarFatura(dono.oficinaId, leitura.cobrancaId, c);
+    if (erroFatura) {
+      console.error("[cobranca] falhei ao gravar a fatura:", erroFatura.message);
+      return falha(`não consegui gravar a fatura (${erroFatura.message})`, 500);
+    }
+    fatura = "registrada";
+
+    oficinaId = dono.oficinaId;
     ({ patch, motivo } = patchDaCobranca(c, hoje()));
   } else {
     const a = await conferirAssinaturaNoProvedor(leitura.assinaturaId);
@@ -142,25 +223,26 @@ export async function POST(req: Request) {
       console.error("[cobranca] não consegui conferir a assinatura:", a.erro);
       return falha(`não consegui conferir a assinatura (${a.erro})`, 500);
     }
-    assinaturaId = leitura.assinaturaId;
-    referencia = a.referencia;
+
+    const dono = await acharOficina(leitura.assinaturaId, a.referencia);
+    if (dono.erro) return falha(`não consegui achar a oficina (${dono.erro})`, 500);
+    if (!dono.oficinaId) {
+      console.error("[cobranca] assinatura conferida e SEM dono:", leitura.assinaturaId);
+      return ok({
+        estado: "ignorado",
+        motivo: "não achei a oficina desta assinatura — nada foi alterado",
+      });
+    }
+
+    oficinaId = dono.oficinaId;
     ({ patch, motivo } = patchDaAssinatura(a));
   }
 
   if (!patch) {
-    console.log("[cobranca] sem efeito:", motivo);
-    return ok({ estado: "ignorado", motivo });
-  }
-
-  const { oficinaId, erro: erroBusca } = await acharOficina(assinaturaId, referencia);
-  if (erroBusca) return falha(`não consegui achar a oficina (${erroBusca})`, 500);
-  if (!oficinaId) {
-    // 200 de propósito: reenviar não vai fazer a oficina aparecer.
-    console.error("[cobranca] evento conferido e SEM dono:", assinaturaId, referencia);
-    return ok({
-      estado: "ignorado",
-      motivo: "não achei a oficina desta cobrança — nada foi liberado",
-    });
+    // Sem efeito no ACESSO — o que não quer dizer sem efeito nenhum: a fatura
+    // pode ter sido gravada logo acima, e a resposta diz isso.
+    console.log("[cobranca] sem efeito no acesso:", motivo);
+    return ok({ estado: "ignorado", motivo, fatura });
   }
 
   const { error } = await gravar(oficinaId, patch);
@@ -170,5 +252,5 @@ export async function POST(req: Request) {
   }
 
   console.log("[cobranca] aplicado:", oficinaId, motivo);
-  return ok({ estado: "aplicado", motivo });
+  return ok({ estado: "aplicado", motivo, fatura });
 }

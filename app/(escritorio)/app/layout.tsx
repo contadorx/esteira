@@ -13,7 +13,7 @@ export default async function LayoutEscritorio({
 }: {
   children: React.ReactNode;
 }) {
-  const { estado, oficinaId, oficina, papel, erro } = await oficinaDaSessao();
+  const { estado, oficinaId, oficina, erro } = await oficinaDaSessao();
 
   // Falha de leitura NÃO pode virar redirect para /entrar: /entrar tentaria a
   // mesma leitura, falharia igual, e o usuário ficaria num pingue-pongue sem
@@ -89,16 +89,35 @@ export default async function LayoutEscritorio({
             <span className="n">Esteira</span>
           </a>
 
+          {/*
+            CINCO ITENS, UM POR PERGUNTA (D29).
+
+            Eram nove — e nove itens não é navegação, é um índice que a pessoa
+            relê toda vez. A nona entrada (Conta, no B9) quebrou a linha em
+            1280px, e a resposta não foi mudar a barra de lado: foi cortar.
+
+            Cada item responde a uma pergunta que a pessoa já tem na cabeça:
+              como está a produção agora?   → Quadro
+              o que estoura se ninguém andar? → Radar
+              cadê o pedido do fulano?      → Pedidos
+              quanto tempo isso leva aqui?  → Tempos
+              e a minha oficina?            → Ajustes
+
+            "Novo pedido" e "Importar CSV" SAÍRAM: são ações, não lugares, e os
+            botões já existem no Quadro e na tela de Pedidos. Mantê-los aqui era
+            a regra 12 aplicada à navegação — o mesmo caminho em dois lugares,
+            que um dia diverge.
+
+            A barra é horizontal de propósito: a tela principal é um quadro, e
+            uma coluna lateral tira largura exatamente do eixo em que as etapas
+            competem por espaço.
+          */}
           <nav className="app-menu">
             <a href="/app">Quadro</a>
             <a href="/app/radar">Radar</a>
-            <a href="/app/tempos">Tempos</a>
             <a href="/app/pedidos">Pedidos</a>
-            <a href="/app/novo">Novo pedido</a>
-            <a href="/app/importar">Importar CSV</a>
-            <a href="/app/etapas">Etapas</a>
-            <a href="/app/acessos">Acessos</a>
-            {papel === "dono" && <a href="/app/conta">Conta</a>}
+            <a href="/app/tempos">Tempos</a>
+            <a href="/app/ajustes">Ajustes</a>
           </nav>
 
           <div className="app-quem">
