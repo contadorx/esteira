@@ -98,11 +98,14 @@ where email = '<email-do-usuario>';
 | `/app/pedidos` | a lista completa, com KPIs e cor por prazo | B1 |
 | `/app/novo` | cadastro manual | B1 |
 | `/app/importar` | import de CSV com relatório linha a linha | B1 |
+| `/app/radar` | **o radar de atraso** — a função que vende | B6 |
 | `/app/etapas` | etapas por tipo de pedido e packs de setor | B2 |
 | `/app/acessos` | links do chão: criar, copiar, PIN, revogar | B4 |
 | `/c/<token>` | **o celular do chão** — sem senha, dois toques | B4 |
+| `/p/<token>` | **a página do cliente final** — sem app, sem senha | B5 |
+| `/api/saude` | diagnóstico de ambiente e conectividade | — |
 
-Faltam: página pública do pedido (B5) e o radar (B6). A landing não promete
+O MVP está de pé: B0 a B6 entregues, todos com portão batido. A landing não promete
 data nem preço, e só ganhou o link "Entrar" (topo, à direita) quando o login
 passou a existir.
 
@@ -126,6 +129,9 @@ npm run portao:b1     # entrada de pedidos
 npm run portao:b2     # etapas e packs
 npm run portao:b3     # o quadro
 npm run portao:b4     # o celular do chão
+npm run portao:b5     # a página do cliente e o aviso
+npm run portao:b6     # o radar de atraso
+npm run portoes       # todos, em sequência
 ```
 
 Detalhes e o que o roteiro NÃO prova: `verificacao/LEIA.md`.

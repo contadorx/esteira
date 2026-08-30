@@ -69,6 +69,7 @@ export default async function LayoutEscritorio({
 
           <nav className="app-menu">
             <a href="/app">Quadro</a>
+            <a href="/app/radar">Radar</a>
             <a href="/app/pedidos">Pedidos</a>
             <a href="/app/novo">Novo pedido</a>
             <a href="/app/importar">Importar CSV</a>

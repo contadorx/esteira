@@ -22,6 +22,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { curtaBR, diasAteOPrazo, hoje, situacaoDoPrazo } from "@/lib/datas";
 import { moverPedido, type ResultadoMover } from "./acoes";
+import PainelAviso from "../aviso";
 import type { CartaoPedido, ColunaEtapa } from "./tipos";
 
 const ROTULO = { ok: "no prazo", aperta: "aperta", estourou: "venceu" } as const;
@@ -167,12 +168,16 @@ export default function Quadro({
   tipos,
   tipoAtivo,
   foraDoQuadro,
+  oficina,
+  base,
 }: {
   colunas: ColunaEtapa[];
   cartoes: CartaoPedido[];
   tipos: string[];
   tipoAtivo: string;
   foraDoQuadro: number;
+  oficina: string | null;
+  base: string;
 }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
@@ -191,7 +196,7 @@ export default function Quadro({
     setAviso(null);
     iniciar(async () => {
       const r = await moverPedido(cartao.id, cartao.etapaId, destino);
-      if (r.estado !== "ok") setAviso(r);
+      setAviso(r);
       // Mesmo em conflito recarregamos: a tela precisa mostrar onde o pedido
       // REALMENTE está, não a versão que o usuário tinha na cabeça.
       router.refresh();
@@ -307,13 +312,43 @@ export default function Quadro({
         </div>
       </div>
 
-      {aviso && (
+      {aviso && aviso.estado !== "ok" && (
         <div
           className={aviso.estado === "conflito" ? "aviso-conflito" : "falha"}
           role="alert"
         >
           <b>{aviso.estado === "conflito" ? "O quadro mudou." : "Não deu."}</b>
           <p>{aviso.mensagem}</p>
+        </div>
+      )}
+
+      {/* Avisar o cliente é mais provável de acontecer AQUI, no segundo
+          seguinte ao movimento, do que numa tela separada depois. */}
+      {aviso?.estado === "ok" && aviso.avisar && (
+        <div className="moveu">
+          <div className="moveu-cab">
+            <b>
+              #{aviso.avisar.numero} entrou em {aviso.avisar.etapaAtual}
+            </b>
+            <button className="mini-btn" onClick={() => setAviso(null)}>
+              fechar
+            </button>
+          </div>
+          <PainelAviso
+            dados={{
+              pedidoId: aviso.avisar.pedidoId,
+              numero: aviso.avisar.numero,
+              cliente: aviso.avisar.cliente,
+              fone: aviso.avisar.fone,
+              descricao: aviso.avisar.descricao,
+              etapaAtual: aviso.avisar.etapaAtual,
+              previsao: aviso.avisar.previsao,
+              tokenPublico: aviso.avisar.tokenPublico,
+              oficina: oficina ?? "sua oficina",
+              base,
+              ultima: aviso.avisar.ultima,
+            }}
+          />
         </div>
       )}
 

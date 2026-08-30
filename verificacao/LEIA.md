@@ -89,6 +89,44 @@ descobria o motivo da recusa *depois*, adivinhando — e respondia "já está na
 motivo errado continua sendo violação da regra 2. Hoje `invalido`, `conflito` e
 `fim` são testados separadamente, na mesma ordem, no banco e no roteiro.
 
+## `portao-b5.mjs` — a página do cliente e o aviso
+
+O portão deste bloco é **uma frase que não pode existir**. O mockup tinha um
+toast dizendo "#1042 avançou — cliente avisado" sem nada por trás; é o furo que
+originou a regra nº 2. Na fase 1 quem envia é a pessoa, pelo WhatsApp dela, e o
+aplicativo não tem como saber se ela apertou enviar.
+
+O roteiro varre `/app` e `/app/pedidos` atrás de "avisado" e **falha se achar**.
+Confere também que a confirmação diz "copiada às HH:MM", que o token público
+tem 32 caracteres, que a página abre em navegador limpo sem um cookie sequer, e
+que **nada de dentro da oficina chega ao navegador do cliente**: telefone, nome
+e observação interna são procurados no `textContent` — que inclui o payload dos
+`<script>`, porque dado que não aparece na tela mas viaja até o navegador vaza
+do mesmo jeito.
+
+A régua de exposição do projeto, para não confundir os três casos:
+
+| onde | o que aparece do cliente |
+|---|---|
+| mensagem que a oficina manda | nome completo (é ela falando com quem conhece) |
+| tela do chão de fábrica | primeiro nome |
+| página pública do pedido | nome nenhum — o link pode ser reencaminhado |
+
+## `portao-b6.mjs` — o radar de atraso
+
+A aritmética é provada pela **fumaça no banco**, com pedidos montados para cair
+em cada motivo e nos limites: prazo de ontem, folga de exatamente um dia,
+parado há 1 × 2 dias, vencido já na última etapa (que fica de fora), e o caso
+de o pedido sair do radar assim que anda. Ver o cabeçalho de
+`supabase/migrations/20260830_radar.sql`.
+
+Este roteiro prova a outra metade — que a tela mostra o que a conta mandou:
+KPI de cada motivo = itens daquele motivo na lista; ordem por gravidade; cada
+item explicando o próprio motivo de forma concreta; a mensagem contendo
+exatamente os mesmos pedidos; e **a tela dizendo que o envio automático das 7h
+ainda não existe** (D9) — prometer uma mensagem que não vem é pior que não ter
+radar, porque a pessoa passou a confiar.
+
 ## Armadilhas já pagas
 
 A primeira versão deste roteiro clicava em `button[type=submit]`, que também
@@ -105,6 +143,22 @@ Outras três, todas do mesmo tipo — o roteiro errado acusando o produto:
   comparar em minúsculas, ou usar `hasText`, que já é insensível.
 - **Resíduo de execução anterior muda a tela.** Um tipo `crono*` de uma rodada
   passada entra antes de "Padrao" na ordenação e desloca tudo. Rode a limpeza.
+- **Teste de vazamento com massa que não tem o dado não prova nada.** A primeira
+  versão do B5 procurava telefone numa base sem telefone e passava vazio — pior
+  que não ter teste, porque dá sensação de segurança. Confira que a massa
+  contém aquilo que o teste procura.
+- **Data pura em coluna `timestamptz` desloca o dia.** `2026-09-09` vira
+  meia-noite UTC, que é 21h do dia 8 em São Paulo — e "parado há N dias" sai
+  um dia maior. A produção grava `now()`, um instante real; o teste precisa
+  construir hora local explícita (`'... 09:00'::timestamp at time zone
+  'America/Sao_Paulo'`). Regra 8 cobrando o preço dela no teste.
+- **Regra de teste rígida demais reprova a redação melhor.** Exigir número no
+  motivo reprovava "venceu ontem", que é mais claro que "venceu há 1 dias".
+  Teste a intenção (ser concreto), não a forma.
+- **`textContent` inclui `<script>`.** Bom para caçar vazamento (o payload
+  chega ao navegador), ruim para conferir texto visível. Escolha conforme a
+  pergunta: `innerText` para o que a pessoa lê, `textContent` para o que o
+  navegador recebe.
 
 ## Limpeza
 

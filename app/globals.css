@@ -424,3 +424,76 @@ input[aria-invalid="true"] { border-color: var(--estourou); background: var(--es
 .acesso-novo input { flex: 1; min-width: 160px; }
 .acesso-novo select { flex: none; width: auto; min-width: 170px; }
 .acesso-novo .campo-pin { flex: none; width: 120px; }
+
+/* ── página do cliente final (B5) ── */
+/* Abre no celular de alguém que não conhece a Esteira e não quer conhecer:
+   uma tela, sem menu, sem login, sem instalar nada. */
+.cli { max-width: 520px; margin: 0 auto; padding: 20px 14px 44px; }
+.cli-topo { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.cli-oficina { font-family: "Archivo", sans-serif; font-weight: 700; font-size: 19px; color: var(--aco); }
+.cli-num { margin-left: auto; font-size: 13px; color: var(--tinta-2); }
+.cli-cartao { background: var(--branco); border: 1px solid var(--linha); border-radius: 14px; padding: 20px 18px; margin-bottom: 14px; box-shadow: var(--sombra); }
+.cli-cartao h1 { font-size: 21px; line-height: 1.3; }
+.cli-cartao h2 { font-size: 16px; margin-bottom: 14px; }
+.cli-ola { color: var(--tinta-2); font-size: 14.5px; margin-top: 8px; }
+.cli-rotulo { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tinta-2); }
+.cli-agora { margin-top: 18px; padding: 13px 15px; background: var(--aco-fraco); border-radius: 10px; }
+.cli-agora b { font-family: "Archivo", sans-serif; font-size: 20px; color: var(--aco); display: block; margin-top: 3px; }
+.cli-previsao { margin-top: 13px; padding: 0 2px; }
+.cli-previsao b { font-size: 16.5px; display: block; margin-top: 3px; }
+.cli-previsao .cli-sem { color: var(--tinta-2); font-weight: 500; font-style: italic; }
+.cli-atrasado { display: block; margin-top: 7px; font-size: 13.5px; color: var(--aperta); line-height: 1.45; }
+.cli-passos { list-style: none; display: grid; gap: 2px; }
+.cli-passo { display: flex; align-items: center; gap: 11px; padding: 9px 0; font-size: 15px; position: relative; }
+.cli-passo .cli-ponto { width: 13px; height: 13px; border-radius: 50%; background: var(--linha); flex: none; }
+.cli-passo.cumprida .cli-ponto { background: var(--ok); }
+.cli-passo.cumprida { color: var(--tinta-2); }
+.cli-passo.atual .cli-ponto { background: var(--branco); border: 3px solid var(--aco); width: 15px; height: 15px; }
+.cli-passo.atual { font-weight: 700; }
+.cli-passo-quando { margin-left: auto; font-size: 12.5px; color: var(--tinta-2); }
+.cli-passo.atual .cli-passo-quando { color: var(--aco); font-weight: 600; }
+.cli-faltam { margin-top: 12px; font-size: 13.5px; color: var(--tinta-2); }
+.cli-rodape { text-align: center; font-size: 12.5px; color: var(--tinta-2); line-height: 1.6; margin-top: 20px; }
+.cli-aviso { text-align: center; padding-top: 70px; }
+.cli-aviso h1 { font-size: 22px; margin-bottom: 10px; }
+.cli-aviso p { color: var(--tinta-2); font-size: 15px; line-height: 1.5; }
+
+/* ── avisar o cliente (escritório) ── */
+.aviso-painel { background: var(--papel); border: 1px solid var(--linha); border-radius: 11px; padding: 14px 16px; display: grid; gap: 10px; }
+.aviso-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.aviso-fone { margin-left: auto; font-size: 12.5px; color: var(--tinta-2); font-family: "IBM Plex Mono", monospace; }
+.aviso-texto { width: 100%; font: inherit; font-size: 14px; line-height: 1.55; padding: 11px 13px; border: 1px solid var(--linha); border-radius: 9px; background: var(--branco); resize: vertical; }
+.aviso-acoes { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.aviso-acoes .btn { padding: 9px 16px; font-size: 14.5px; }
+.aviso-sem-fone { font-size: 13px; color: var(--tinta-2); }
+.aviso-ok { background: var(--ok-bg); color: var(--ok); border-radius: 8px; padding: 10px 13px; font-size: 14px; line-height: 1.5; }
+.linha-aviso td { background: var(--concreto); padding: 12px 14px; }
+.col-avisar { white-space: nowrap; display: flex; gap: 5px; }
+.col-avisar .mini-btn { text-decoration: none; }
+.moveu { margin-top: 16px; border: 1px solid var(--aco); border-radius: 12px; padding: 13px 15px; background: var(--aco-fraco); }
+.moveu-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+.moveu-cab b { color: var(--aco); }
+.moveu-cab .mini-btn { margin-left: auto; }
+
+/* ── radar de atraso (B6) ── */
+.radar-lista { list-style: none; display: grid; gap: 9px; margin-top: 20px; }
+.radar-item { display: flex; align-items: flex-start; gap: 12px; background: var(--branco); border: 1px solid var(--linha); border-left: 5px solid var(--linha); border-radius: 11px; padding: 13px 15px; }
+.radar-item.venceu { border-left-color: var(--estourou); }
+.radar-item.aperta { border-left-color: var(--aperta); }
+.radar-item.parado { border-left-color: var(--aco); }
+.radar-item > .pill { flex: none; margin-top: 2px; }
+.radar-item.parado > .pill { background: var(--aco-fraco); color: var(--aco); }
+.radar-corpo { flex: 1; min-width: 0; }
+.radar-titulo { font-size: 15.5px; font-weight: 600; }
+.radar-titulo .mono { color: var(--tinta-2); font-weight: 400; font-size: 13px; margin-right: 4px; }
+.radar-desc { font-size: 13.5px; color: var(--tinta-2); margin-top: 1px; }
+.radar-motivo { font-size: 13.5px; margin-top: 5px; }
+.radar-item > .mini-btn { flex: none; text-decoration: none; margin-top: 2px; }
+.radar-limpo { margin-top: 22px; background: var(--ok-bg); color: var(--ok); border-radius: 11px; padding: 18px 20px; font-size: 15.5px; line-height: 1.55; }
+.radar-copiar { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--linha); }
+.radar-copiar h2 { font-size: 18px; margin-bottom: 12px; }
+.radar-copiar .aviso-texto { margin-bottom: 11px; }
+.radar-nota { margin-top: 13px; font-size: 13.5px; color: var(--tinta-2); line-height: 1.55; background: var(--papel); border: 1px dashed var(--linha); border-radius: 9px; padding: 11px 14px; }
+.radar-metrica { margin-top: 26px; padding: 14px 16px; background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; font-size: 14.5px; line-height: 1.55; }
+.radar-metrica b { font-family: "Archivo", sans-serif; font-size: 16px; }
+.radar-metrica-alerta { color: var(--aperta); }

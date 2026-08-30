@@ -30,12 +30,13 @@ export interface Mensagem {
 /** Templates da fase 1 — texto alinhado ao 06-fase-0-kit-de-campo. */
 const TEMPLATES: Record<TipoMensagem, (d: DadosMensagem) => string> = {
   pedido_avancou: (d) =>
-    `Olá, ${d.nome}! Seu pedido ${d.descricao} saiu de "${d.etapaAnterior}" ` +
-    `e entrou em "${d.etapaAtual}". Previsão de conclusão: ${d.previsao}. ` +
-    `Acompanhe por aqui: ${d.link} — ${d.remetente}`,
+    `Olá, ${d.nome}! Seu pedido ${d.descricao} está agora em "${d.etapaAtual}". ` +
+    `${d.previsao}\n` +
+    `Acompanhe por aqui: ${d.link}\n— ${d.remetente}`,
   pedido_pronto: (d) =>
     `${d.nome}, seu pedido ${d.descricao} está PRONTO! ` +
-    `Combinamos a entrega para ${d.previsao}? — ${d.remetente}`,
+    `Podemos combinar a entrega?\n` +
+    `Detalhes: ${d.link}\n— ${d.remetente}`,
   radar_atraso: (d) =>
     `Bom dia! ${d.qtd} pedido(s) não saem no prazo se não andarem hoje:\n` +
     `${d.lista}\nOntem: ${d.resumoOntem}`,

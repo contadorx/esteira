@@ -9,7 +9,10 @@
     "portao:b1": "node verificacao/portao-b1.mjs",
     "portao:b2": "node verificacao/portao-b2.mjs",
     "portao:b3": "node verificacao/portao-b3.mjs",
-    "portao:b4": "node verificacao/portao-b4.mjs"
+    "portao:b4": "node verificacao/portao-b4.mjs",
+    "portao:b5": "node verificacao/portao-b5.mjs",
+    "portao:b6": "node verificacao/portao-b6.mjs",
+    "portoes": "npm run portao:b1 && npm run portao:b2 && npm run portao:b3 && npm run portao:b4 && npm run portao:b5 && npm run portao:b6"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

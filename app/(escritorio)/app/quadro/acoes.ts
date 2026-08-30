@@ -20,6 +20,18 @@ import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
 export interface ResultadoMover {
   estado: "ok" | "conflito" | "erro";
   mensagem: string | null;
+  /** Dados para avisar o cliente sem precisar sair do quadro. */
+  avisar: {
+    pedidoId: string;
+    numero: string;
+    cliente: string;
+    fone: string | null;
+    descricao: string | null;
+    etapaAtual: string;
+    previsao: string | null;
+    tokenPublico: string;
+    ultima: "pedido_avancou" | "pedido_pronto";
+  } | null;
 }
 
 export async function moverPedido(
@@ -32,7 +44,7 @@ export async function moverPedido(
   const supabase = await clienteDoServidor();
 
   if (etapaAtualEsperada === etapaDestino) {
-    return { estado: "ok", mensagem: null };
+    return { estado: "ok", mensagem: null, avisar: null };
   }
 
   // A trava: só move se ainda estiver onde a tela achava que estava.
@@ -41,12 +53,16 @@ export async function moverPedido(
     .update({ etapa_id: etapaDestino })
     .eq("id", pedidoId)
     .eq("etapa_id", etapaAtualEsperada)
-    .select("id, numero");
+    .select("id, numero, cliente_nome, cliente_fone, descricao, prazo, tipo_pedido, token_publico");
 
   if (error) {
     if (error.code === "23503")
-      return { estado: "erro", mensagem: "Essa etapa não pertence a esta oficina." };
-    return { estado: "erro", mensagem: `Não consegui mover: ${error.message}` };
+      return {
+        estado: "erro",
+        mensagem: "Essa etapa não pertence a esta oficina.",
+        avisar: null,
+      };
+    return { estado: "erro", mensagem: `Não consegui mover: ${error.message}`, avisar: null };
   }
 
   if (!data || data.length === 0) {
@@ -62,10 +78,12 @@ export async function moverPedido(
       return {
         estado: "conflito",
         mensagem: "Este pedido não está mais aqui. Recarreguei o quadro.",
+        avisar: null,
       };
     }
     const etapa = Array.isArray(atual.etapas) ? atual.etapas[0] : atual.etapas;
     return {
+      avisar: null,
       estado: "conflito",
       mensagem:
         `O pedido ${atual.numero} já tinha saído dessa etapa` +
@@ -73,6 +91,8 @@ export async function moverPedido(
         " Alguém moveu antes de você.",
     };
   }
+
+  const movido = data[0];
 
   // A trilha. Se ela falhar, o pedido JÁ mudou de etapa — e dizer "ok" aqui
   // esconderia um furo na métrica que decide o produto. Então falamos.
@@ -87,12 +107,42 @@ export async function moverPedido(
 
   if (erroTrilha) {
     return {
+      avisar: null,
       estado: "erro",
       mensagem:
-        `O pedido ${data[0].numero} mudou de etapa, mas não consegui registrar ` +
+        `O pedido ${movido.numero} mudou de etapa, mas não consegui registrar ` +
         `quem moveu (${erroTrilha.message}). O histórico ficou incompleto.`,
     };
   }
 
-  return { estado: "ok", mensagem: null };
+  // A etapa de destino é a última do caminho? Muda o template da mensagem.
+  const { data: proximas } = await supabase
+    .from("etapas")
+    .select("id, ordem")
+    .eq("tipo_pedido", movido.tipo_pedido ?? "padrao")
+    .order("ordem", { ascending: false })
+    .limit(1);
+  const naUltima = proximas?.[0]?.id === etapaDestino;
+
+  const { data: etapaDestinoInfo } = await supabase
+    .from("etapas")
+    .select("nome")
+    .eq("id", etapaDestino)
+    .maybeSingle();
+
+  return {
+    estado: "ok",
+    mensagem: null,
+    avisar: {
+      pedidoId,
+      numero: movido.numero,
+      cliente: movido.cliente_nome,   // completo: vai na mensagem ao próprio cliente
+      fone: movido.cliente_fone,
+      descricao: movido.descricao,
+      etapaAtual: etapaDestinoInfo?.nome ?? "—",
+      previsao: movido.prazo,
+      tokenPublico: movido.token_publico,
+      ultima: naUltima ? "pedido_pronto" : "pedido_avancou",
+    },
+  };
 }

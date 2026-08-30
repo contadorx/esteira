@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { clienteDoServidor } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
 import Quadro from "./quadro/quadro";
 import type { CartaoPedido, ColunaEtapa } from "./quadro/tipos";
 
@@ -16,11 +17,12 @@ export default async function PaginaQuadro({
   searchParams: Promise<Busca>;
 }) {
   const { tipo: tipoPedido } = await searchParams;
+  const { oficinaId } = await oficinaDaSessao();
   const supabase = await clienteDoServidor();
 
   // As duas leituras que o quadro é. Erro NÃO vira lista vazia: um quadro sem
   // cartões parece "tudo entregue", que é a mentira mais cara desta tela.
-  const [resEtapas, resPedidos] = await Promise.all([
+  const [resEtapas, resPedidos, resOficina] = await Promise.all([
     supabase.from("etapas").select("id, nome, ordem, tipo_pedido").order("ordem"),
     supabase
       .from("pedidos")
@@ -28,7 +30,12 @@ export default async function PaginaQuadro({
         "id, numero, cliente_nome, descricao, prazo, tipo_pedido, etapa_id, etapa_desde",
       )
       .order("prazo", { ascending: true, nullsFirst: false }),
+    supabase.from("oficinas").select("nome").eq("id", oficinaId ?? "").maybeSingle(),
   ]);
+
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "esteira.app.br";
+  const protocolo = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
 
   if (resEtapas.error || resPedidos.error) {
     const qual = resEtapas.error ? "as etapas" : "os pedidos";
@@ -88,6 +95,8 @@ export default async function PaginaQuadro({
       tipos={tipos}
       tipoAtivo={tipoAtivo}
       foraDoQuadro={foraDoQuadro}
+      oficina={resOficina.error ? null : (resOficina.data?.nome ?? null)}
+      base={`${protocolo}://${host}`}
     />
   );
 }

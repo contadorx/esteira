@@ -1,44 +1,43 @@
 import type { Metadata } from "next";
-import { clienteDoServidor } from "@/lib/supabase/server";
-import { curtaBR, diasAteOPrazo, situacaoDoPrazo } from "@/lib/datas";
+import { headers } from "next/headers";
+import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
+import ListaPedidos from "./lista";
+import type { LinhaPedido } from "./tipos";
 
 export const metadata: Metadata = { title: "Pedidos — Esteira" };
 export const dynamic = "force-dynamic";
 
-interface Busca {
-  novo?: string;
-}
-
-const ROTULO = {
-  ok: "no prazo",
-  aperta: "aperta",
-  estourou: "venceu",
-} as const;
-
 export default async function PaginaPedidos({
   searchParams,
 }: {
-  searchParams: Promise<Busca>;
+  searchParams: Promise<{ novo?: string }>;
 }) {
   const { novo } = await searchParams;
+  const { oficinaId } = await oficinaDaSessao();
   const supabase = await clienteDoServidor();
 
-  // Contagem e lista saem da MESMA consulta (regra 4): dois números que
-  // precisam concordar não podem nascer em lugares diferentes.
-  const { data, error } = await supabase
-    .from("pedidos")
-    .select("id, numero, cliente_nome, descricao, prazo, origem, tipo_pedido, etapas(nome, ordem)")
-    .order("criado_em", { ascending: false });
+  const [resPedidos, resEtapas, resOficina] = await Promise.all([
+    supabase
+      .from("pedidos")
+      .select(
+        "id, numero, cliente_nome, cliente_fone, descricao, prazo, origem, tipo_pedido, token_publico, etapa_id",
+      )
+      .order("criado_em", { ascending: false }),
+    supabase.from("etapas").select("id, nome, ordem, tipo_pedido").order("ordem"),
+    supabase.from("oficinas").select("nome").eq("id", oficinaId ?? "").maybeSingle(),
+  ]);
 
   // Regra 3: falha NÃO vira lista vazia. "Ainda não perguntei" e "não consegui"
   // são estados distintos de "não há pedidos".
-  if (error) {
+  if (resPedidos.error || resEtapas.error) {
+    const qual = resPedidos.error ? "os pedidos" : "as etapas";
+    const msg = (resPedidos.error ?? resEtapas.error)!.message;
     return (
       <div className="wrap-app">
         <h1>Pedidos</h1>
         <div className="falha" role="alert">
-          <b>Não consegui carregar os pedidos.</b>
-          <p>{error.message}</p>
+          <b>Não consegui carregar {qual}.</b>
+          <p>{msg}</p>
           <p className="obs">
             A tela não sabe quantos pedidos existem — este número não é zero, é
             desconhecido.
@@ -48,113 +47,45 @@ export default async function PaginaPedidos({
     );
   }
 
-  const pedidos = data ?? [];
-  const total = pedidos.length;
-  // A coluna Tipo só aparece quando existe mais de um caminho — numa oficina
-  // com um tipo só ela seria uma coluna repetindo a mesma palavra.
-  const tipos = new Set(pedidos.map((p) => p.tipo_pedido ?? "padrao"));
-  const mostrarTipo = tipos.size > 1;
-  const vencidos = pedidos.filter(
-    (p) => p.prazo && situacaoDoPrazo(p.prazo) === "estourou",
-  ).length;
-  const apertando = pedidos.filter(
-    (p) => p.prazo && situacaoDoPrazo(p.prazo) === "aperta",
-  ).length;
+  const etapas = resEtapas.data ?? [];
+  const porId = new Map(etapas.map((e) => [e.id, e]));
+  // Última etapa de cada caminho: é o que decide se a mensagem é "avançou" ou
+  // "está pronto".
+  const ultimaOrdem = new Map<string, number>();
+  for (const e of etapas) {
+    ultimaOrdem.set(e.tipo_pedido, Math.max(ultimaOrdem.get(e.tipo_pedido) ?? 0, e.ordem));
+  }
+
+  const pedidos: LinhaPedido[] = (resPedidos.data ?? []).map((p) => {
+    const etapa = p.etapa_id ? porId.get(p.etapa_id) : undefined;
+    const tipo = p.tipo_pedido ?? "padrao";
+    return {
+      id: p.id,
+      numero: p.numero,
+      clienteNome: p.cliente_nome,
+      clientePrimeiroNome: p.cliente_nome,
+      fone: p.cliente_fone,
+      descricao: p.descricao,
+      prazo: p.prazo,
+      origem: p.origem,
+      tipo,
+      tokenPublico: p.token_publico,
+      etapaNome: etapa?.nome ?? null,
+      naUltimaEtapa: etapa ? etapa.ordem >= (ultimaOrdem.get(tipo) ?? 0) : false,
+    };
+  });
+
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "esteira.app.br";
+  const protocolo = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
 
   return (
-    <div className="wrap-app">
-      {novo && (
-        <p className="ok-faixa" role="status">
-          Pedido <b>#{novo}</b> cadastrado.
-        </p>
-      )}
-
-      <div className="app-cab">
-        <div>
-          <h1>Pedidos</h1>
-          <p className="ajuda">
-            Todos os pedidos em uma tabela. Para trabalhar o dia, o{" "}
-            <a href="/app">quadro</a> é melhor.
-          </p>
-        </div>
-        <div className="app-acoes">
-          <a className="btn btn-aco" href="/app/novo">
-            Novo pedido
-          </a>
-          <a className="btn btn-borda" href="/app/importar">
-            Importar CSV
-          </a>
-        </div>
-      </div>
-
-      <div className="kpis">
-        <div className="kpi">
-          <div className="r">Pedidos</div>
-          <div className="v">{total}</div>
-        </div>
-        <div className="kpi risco">
-          <div className="r">Aperta o prazo</div>
-          <div className="v">{apertando}</div>
-        </div>
-        <div className="kpi mal">
-          <div className="r">Venceu</div>
-          <div className="v">{vencidos}</div>
-        </div>
-      </div>
-
-      {total === 0 ? (
-        <p className="vazio">
-          Nenhum pedido ainda. Comece cadastrando um ou importando o CSV da sua
-          planilha.
-        </p>
-      ) : (
-        <div className="tabela-rolo">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>Nº</th>
-                <th>Cliente</th>
-                <th>Descrição</th>
-                {mostrarTipo && <th>Tipo</th>}
-                <th>Etapa</th>
-                <th>Prazo</th>
-                <th>Origem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedidos.map((p) => {
-                const etapa = Array.isArray(p.etapas) ? p.etapas[0] : p.etapas;
-                const situacao = p.prazo ? situacaoDoPrazo(p.prazo) : null;
-                const dias = p.prazo ? diasAteOPrazo(p.prazo) : null;
-                return (
-                  <tr key={p.id}>
-                    <td className="mono">{p.numero}</td>
-                    <td>{p.cliente_nome}</td>
-                    <td className="desc">{p.descricao ?? "—"}</td>
-                    {mostrarTipo && (
-                      <td className="origem">
-                        {(p.tipo_pedido ?? "padrao").replace(/_/g, " ")}
-                      </td>
-                    )}
-                    <td>{etapa?.nome ?? "—"}</td>
-                    <td>
-                      {p.prazo && situacao ? (
-                        <span className={`pill ${situacao}`}>
-                          {ROTULO[situacao]} · {curtaBR(p.prazo)}
-                          {dias !== null && dias < 0 ? ` (${Math.abs(dias)}d)` : ""}
-                        </span>
-                      ) : (
-                        <span className="sem-prazo">sem prazo</span>
-                      )}
-                    </td>
-                    <td className="origem">{p.origem}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <ListaPedidos
+      pedidos={pedidos}
+      oficina={resOficina.error ? null : (resOficina.data?.nome ?? null)}
+      base={`${protocolo}://${host}`}
+      novo={novo ?? null}
+      mostrarTipo={new Set(pedidos.map((p) => p.tipo)).size > 1}
+    />
   );
 }
