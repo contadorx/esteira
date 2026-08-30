@@ -1,0 +1,62 @@
+﻿numero;cliente_nome;cliente_fone;descricao;prazo;etapa
+T-9001;Dona Cida;(11) 98888-0000;"Soleira dupla";02/09/2026;Corte
+T-9002;Ed. Aurora;(11) 98888-0000;"Peitoril 6 un";03/09/2026;Acabamento
+T-9003;Bar do Tião;(11) 98888-0000;"Tampo redondo";04/09/2026;Montagem
+T-9004;Studio Lumen;(11) 98888-0000;"Escada 8 degraus";05/09/2026;Pronto
+T-9005;Cond. Alfa;(11) 98888-0000;"Lavatório";06/09/2026;Recebido
+T-9006;Sra. Bernadete;(11) 98888-0000;"Balcão 2,20 m";07/09/2026;Corte
+T-9007;Loja Verde;(11) 98888-0000;"Nicho de granito";31/02/2026;Acabamento
+T-9008;Sr. Kubota;(11) 98888-0000;"Rodapé 12 m";09/09/2026;Montagem
+T-9009;Padaria Real;(11) 98888-0000;"Mesa lateral";10/09/2026;Pronto
+T-9010;Marmores Silva;(11) 98888-0000;"Bancada 1,80 m";11/09/2026;Recebido
+T-9011;Dona Cida;(11) 98888-0000;"Soleira dupla";12/09/2026;Corte
+T-9012;Ed. Aurora;(11) 98888-0000;"Peitoril 6 un";13/09/2026;Acabamento
+T-9013;Bar do Tião;(11) 98888-0000;"Tampo redondo";14/09/2026;Montagem
+T-9014;Studio Lumen;(11) 98888-0000;"Escada 8 degraus";15/09/2026;Pronto
+T-9015;Cond. Alfa;(11) 98888-0000;"Lavatório";16/09/2026;Polimento a laser
+T-9016;Sra. Bernadete;(11) 98888-0000;"Balcão 2,20 m";17/09/2026;Corte
+T-9017;Loja Verde;(11) 98888-0000;"Nicho de granito";18/09/2026;Acabamento
+T-9018;Sr. Kubota;(11) 98888-0000;"Rodapé 12 m";19/09/2026;Montagem
+T-9019;Padaria Real;(11) 98888-0000;"Mesa lateral";20/09/2026;Pronto
+T-9020;Marmores Silva;(11) 98888-0000;"Bancada 1,80 m";21/09/2026;Recebido
+T-9021;Dona Cida;(11) 98888-0000;"Soleira dupla";22/09/2026;Corte
+T-9022;Ed. Aurora;(11) 98888-0000;"Peitoril 6 un";23/09/2026;Acabamento
+;Bar do Tião;(11) 98888-0000;"Tampo redondo";24/09/2026;Montagem
+T-9024;Studio Lumen;(11) 98888-0000;"Escada 8 degraus";25/09/2026;Pronto
+T-9025;Cond. Alfa;(11) 98888-0000;"Lavatório";26/09/2026;Recebido
+T-9026;Sra. Bernadete;(11) 98888-0000;"Balcão 2,20 m";27/09/2026;Corte
+T-9027;Loja Verde;(11) 98888-0000;"Nicho de granito";28/09/2026;Acabamento
+T-9028;Sr. Kubota;(11) 98888-0000;"Rodapé 12 m";01/09/2026;Montagem
+T-9029;Padaria Real;(11) 98888-0000;"Mesa lateral";02/09/2026;Pronto
+
+T-9030;Marmores Silva;(11) 98888-0000;"Bancada 1,80 m";03/09/2026;Recebido
+T-9031;;(11) 98888-0000;"Soleira dupla";04/09/2026;Corte
+T-9032;Ed. Aurora;(11) 98888-0000;"Peitoril 6 un";05/09/2026;Acabamento
+T-9033;Bar do Tião;(11) 98888-0000;"Tampo redondo";06/09/2026;Montagem
+T-9034;Studio Lumen;(11) 98888-0000;"Escada 8 degraus";07/09/2026;Pronto
+T-9035;Cond. Alfa;(11) 98888-0000;"Lavatório";08/09/2026;Recebido
+T-9036;Sra. Bernadete;(11) 98888-0000;"Balcão 2,20 m";09/09/2026;Corte
+T-9037;Loja Verde;(11) 98888-0000;"Nicho de granito";10/09/2026;Acabamento
+T-9038;Sr. Kubota;(11) 98888-0000;"Rodapé 12 m";11/09/2026;Montagem
+T-9039;Padaria Real;(11) 98888-0000;"Mesa lateral";12/09/2026;Pronto
+T-9040;Marmores Silva;(11) 98888-0000;"Bancada 1,80 m";13/09/2026;Recebido
+T-9041;Dona Cida;(11) 98888-0000;"Soleira dupla";14/09/2026;Corte
+T-9042;Ed. Aurora;(11) 98888-0000;"Peitoril 6 un";15/09/2026;Acabamento
+T-9043;Bar do Tião;(11) 98888-0000;"Tampo redondo";16/09/2026;Montagem
+T-9044;Studio Lumen;123;"Escada 8 degraus";17/09/2026;Pronto
+T-9045;Cond. Alfa;(11) 98888-0000;"Lavatório";18/09/2026;Recebido
+T-9046;Sra. Bernadete;(11) 98888-0000;"Balcão 2,20 m";19/09/2026;Corte
+T-9047;Loja Verde;(11) 98888-0000;"Nicho de granito";20/09/2026;Acabamento
+T-9048;Sr. Kubota;(11) 98888-0000;"Rodapé 12 m";21/09/2026;Montagem
+T-9049;Padaria Real;(11) 98888-0000;"Mesa lateral";22/09/2026;Pronto
+T-9050;Marmores Silva;(11) 98888-0000;"Bancada 1,80 m";23/09/2026;Recebido
+T-9051;Dona Cida;(11) 98888-0000;"Soleira dupla";24/09/2026;Corte
+T-9052;Ed. Aurora;(11) 98888-0000;"Peitoril 6 un";25/09/2026;Acabamento
+T-9053;Bar do Tião;(11) 98888-0000;"Tampo redondo";26/09/2026;Montagem
+T-9054;Studio Lumen;(11) 98888-0000;"Escada 8 degraus";27/09/2026;Pronto
+T-9055;Cond. Alfa;(11) 98888-0000;"Lavatório";28/09/2026;Recebido
+T-9056;Sra. Bernadete;(11) 98888-0000;"Balcão 2,20 m";01/09/2026;Corte
+T-9057;Loja Verde;(11) 98888-0000;"Nicho de granito";02/09/2026;Acabamento
+T-9058;Sr. Kubota;(11) 98888-0000;"Rodapé 12 m";03/09/2026;Montagem
+T-9059;Padaria Real;(11) 98888-0000;"Mesa lateral";04/09/2026;Pronto
+T-9060;Marmores Silva;(11) 98888-0000;"Bancada 1,80 m";05/09/2026;Recebido

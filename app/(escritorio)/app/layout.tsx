@@ -1,0 +1,65 @@
+import { redirect } from "next/navigation";
+import { clienteDoServidor, oficinaDaSessao } from "@/lib/supabase/server";
+import { sair } from "./acoes";
+
+export default async function LayoutEscritorio({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { oficinaId } = await oficinaDaSessao();
+  if (!oficinaId) redirect("/entrar");
+
+  // Nome da oficina: se a leitura falhar, a barra NÃO inventa um nome nem
+  // finge que está tudo bem — diz que não conseguiu ler (regras 2 e 3).
+  const supabase = await clienteDoServidor();
+  const { data, error } = await supabase
+    .from("oficinas")
+    .select("nome")
+    .eq("id", oficinaId)
+    .maybeSingle();
+
+  const nomeOficina = error ? null : (data?.nome ?? null);
+
+  return (
+    <div className="app-casca">
+      <header className="app-barra">
+        <div className="app-barra-in">
+          <a className="marca marca-clara" href="/app">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <rect width="64" height="64" rx="14" fill="#16304F" />
+              <path d="M12 40h40" stroke="#EA5A0B" strokeWidth="6" strokeLinecap="round" />
+              <circle cx="20" cy="48" r="4" fill="#fff" />
+              <circle cx="32" cy="48" r="4" fill="#fff" />
+              <circle cx="44" cy="48" r="4" fill="#fff" />
+              <rect x="24" y="18" width="18" height="14" rx="2" fill="#fff" />
+            </svg>
+            <span className="n">Esteira</span>
+          </a>
+
+          <nav className="app-menu">
+            <a href="/app">Quadro</a>
+            <a href="/app/pedidos">Pedidos</a>
+            <a href="/app/novo">Novo pedido</a>
+            <a href="/app/importar">Importar CSV</a>
+            <a href="/app/etapas">Etapas</a>
+          </nav>
+
+          <div className="app-quem">
+            {nomeOficina ? (
+              <b>{nomeOficina}</b>
+            ) : (
+              <b className="incerto">não consegui ler o nome da oficina</b>
+            )}
+            <form action={sair}>
+              <button type="submit" className="sair">
+                sair
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+      <main className="app-corpo">{children}</main>
+    </div>
+  );
+}

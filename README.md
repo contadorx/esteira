@@ -66,8 +66,41 @@ set raw_app_meta_data = raw_app_meta_data || jsonb_build_object('oficina_id', '<
 where email = '<email-do-usuario>';
 ```
 
-## O que está no ar hoje
+## O que está de pé hoje
 
-Landing (`/`) apenas. Quadro, chão, página do pedido e radar entram pelos blocos
-B1–B6 do roadmap do build. A landing não promete data nem preço — e não tem botão
-de login porque login ainda não existe (nada de promessa sem entrega).
+| rota | o que é | bloco |
+|---|---|---|
+| `/` | landing (no ar em produção) | B0 |
+| `/entrar` | login do escritório | B1 |
+| `/app` | **o quadro** — colunas por etapa, botões `‹ ›` e arrasto | B3 |
+| `/app/pedidos` | a lista completa, com KPIs e cor por prazo | B1 |
+| `/app/novo` | cadastro manual | B1 |
+| `/app/importar` | import de CSV com relatório linha a linha | B1 |
+| `/app/etapas` | etapas por tipo de pedido e packs de setor | B2 |
+
+Faltam: celular do chão (B4), página pública do pedido (B5), radar (B6). A
+landing não promete data nem preço, e só ganhou o link "Entrar" quando o login
+passou a existir.
+
+**Mover pedido tem dois caminhos, de propósito:** os botões `‹ ›` funcionam em
+toque, teclado e leitor de tela — é o caminho garantido; o arrasto pela alça é
+o acelerador de quem está no mouse. O arrasto usa Pointer Events (mouse, caneta
+e dedo no mesmo código), não o drag-and-drop nativo, que não existe em toque.
+
+## Rodar a verificação (o portão do bloco)
+
+```bash
+npm run build && npm run start
+npm i -D playwright && npx playwright install chromium
+npm run portao:b1     # entrada de pedidos
+npm run portao:b2     # etapas e packs
+npm run portao:b3     # o quadro
+```
+
+Detalhes e o que o roteiro NÃO prova: `verificacao/LEIA.md`.
+
+## Usuário de desenvolvimento
+
+`supabase/seed-auth-dev.sql` cria `saojorge@esteira.dev` / `esteira123`, amarrado
+à Marmoraria São Jorge. Só para desenvolvimento — para uma oficina real, crie
+pelo Dashboard e rode o `update` comentado no fim daquele arquivo.

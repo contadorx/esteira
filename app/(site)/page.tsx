@@ -29,6 +29,9 @@ export default function Landing() {
               <span className="n">Esteira</span>
             </div>
             <span className="badge-obra">em construção — escolhendo as primeiras oficinas</span>
+            <a className="entrar-link" href="/entrar">
+              Entrar
+            </a>
           </nav>
           <h1>Todo pedido à vista. Do corte à entrega.</h1>
           <p className="sub">
