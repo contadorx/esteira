@@ -1,31 +1,38 @@
 /**
- * Portão do B11 — a cobrança.
+ * Portão do B11 — a cobrança (Asaas).
  *
  * ── O que este roteiro protege ────────────────────────────────
- * O webhook é a ÚNICA porta que escreve "está pago". Se ela aceitar um POST
- * forjado, qualquer pessoa que descubra o endereço libera o produto para si.
- * Não existe erro mais caro neste bloco — e, ao contrário do checkout, ele é
- * **inteiramente verificável sem conta em provedor nenhum**: a assinatura é
- * um HMAC que este roteiro sabe calcular.
+ * O webhook é a ÚNICA porta que escreve "está pago". E o Asaas, ao contrário
+ * da Stripe, **não assina os eventos**: ele manda um token estático no
+ * cabeçalho `asaas-access-token`. Quem descobrir esse token forja qualquer
+ * aviso, para sempre — não há HMAC nem janela de tempo para impedir.
  *
- * Por isso o portão bate na porta de sete jeitos: sem cabeçalho, com
- * assinatura errada, com assinatura de OUTRO segredo, com corpo adulterado
- * depois de assinado, com relógio fora da janela, com evento desconhecido e,
- * por fim, do jeito certo — conferindo que só o último grava.
+ * A resposta do produto é não acreditar no aviso: todo evento é **conferido
+ * de volta na API do Asaas**, autenticado, antes de virar acesso. É isso que
+ * este portão mede, e é o teste que mais importa aqui:
+ *
+ *   **um POST com o token certo dizendo "confirmada", sobre uma cobrança que
+ *   o Asaas diz estar PENDENTE, não pode liberar nada.**
+ *
+ * O roteiro roda contra um Asaas de mentira, no mesmo servidor do stub, onde
+ * o id da cobrança escolhe a resposta (`pay_confirmada`, `pay_pendente`,
+ * `pay_vencida`, `pay_explode`, id desconhecido → 404).
  *
  * ── O que este roteiro NÃO prova ──────────────────────────────
- * Criar sessão de checkout e de portal fala com a Stripe de verdade. Sem
- * chave, isso não roda aqui — e está escrito no `07-estado-do-projeto` como
- * pendência, não como feito.
+ * A conversa com o Asaas de VERDADE: criar cliente, criar assinatura e abrir
+ * a fatura. Isso precisa de chave e de conta, e está no
+ * `docs/ligar-a-cobranca.md` como primeira execução real — não como feito.
  *
  * COMO RODAR
- *   STRIPE_WEBHOOK_SECRET=... npm run build && npm run start
+ *   export ASAAS_WEBHOOK_TOKEN=<o mesmo do .env.local>
+ *   npm run build && npm run start
  *   node verificacao/portao-b11.mjs
  */
-import { createHmac } from "node:crypto";
+
+import fs from "node:fs";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const SEGREDO = process.env.STRIPE_WEBHOOK_SECRET ?? "whsec_fumaca_da_esteira";
+const TOKEN = process.env.ASAAS_WEBHOOK_TOKEN ?? "token-de-webhook-da-fumaca";
 const ENDERECO = `${BASE}/api/cobranca/webhook`;
 
 const ok = [];
@@ -33,18 +40,14 @@ const falhas = [];
 const checa = (nome, cond, detalhe = "") =>
   (cond ? ok : falhas).push(`${nome}${detalhe ? " — " + detalhe : ""}`);
 
-const agora = () => Math.floor(Date.now() / 1000);
-const assinar = (corpo, segredo, t) =>
-  `t=${t},v1=${createHmac("sha256", segredo).update(`${t}.${corpo}`, "utf8").digest("hex")}`;
-
-async function bater(corpo, cabecalho) {
+async function bater(corpo, token) {
   const r = await fetch(ENDERECO, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(cabecalho ? { "stripe-signature": cabecalho } : {}),
+      ...(token ? { "asaas-access-token": token } : {}),
     },
-    body: corpo,
+    body: JSON.stringify(corpo),
   });
   let json = null;
   try {
@@ -55,153 +58,164 @@ async function bater(corpo, cabecalho) {
   return { status: r.status, json };
 }
 
-const OFICINA = "a0000000-0000-4000-8000-000000000001";
+const eventoDeCobranca = (tipo, idCobranca) => ({
+  id: "evt_1",
+  event: tipo,
+  dateCreated: "2026-08-30 10:00:00",
+  payment: { id: idCobranca, customer: "cus_teste", subscription: "sub_teste", status: "CONFIRMED" },
+});
 
-const assinaturaAtiva = (extra = {}) =>
-  JSON.stringify({
-    id: "evt_1",
-    type: "customer.subscription.updated",
-    data: {
-      object: {
-        id: "sub_123",
-        object: "subscription",
-        status: "active",
-        customer: "cus_123",
-        current_period_end: 1789000000,
-        metadata: { oficina_id: OFICINA },
-        items: { data: [{ price: { id: "price_medio" } }] },
-        ...extra,
-      },
-    },
-  });
-
-// ── 1) sem assinatura: a porta nem abre ───────────────────────
+// ── 1) sem token: a porta nem abre ────────────────────────────
 {
-  const r = await bater(assinaturaAtiva(), null);
-  checa("PORTÃO B11: POST sem assinatura é recusado", r.status === 400, `HTTP ${r.status}`);
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_confirmada"), null);
+  checa("PORTÃO B11: POST sem token é recusado", r.status === 401, `HTTP ${r.status}`);
 }
 
-// ── 2) assinatura inventada ───────────────────────────────────
+// ── 2) token errado ───────────────────────────────────────────
 {
-  const corpo = assinaturaAtiva();
-  const r = await bater(corpo, `t=${agora()},v1=${"a".repeat(64)}`);
-  checa("PORTÃO B11: assinatura inventada é recusada", r.status === 400, `HTTP ${r.status}`);
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_confirmada"), "token-errado");
+  checa("PORTÃO B11: token errado é recusado", r.status === 401, `HTTP ${r.status}`);
 }
 
-// ── 3) assinatura de OUTRO segredo ────────────────────────────
+// ── 3) token quase certo (um caractere a menos) ───────────────
+// Comparação de tamanho antes do conteúdo não pode virar aceite.
 {
-  const corpo = assinaturaAtiva();
-  const r = await bater(corpo, assinar(corpo, "whsec_de_outra_pessoa", agora()));
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_confirmada"), TOKEN.slice(0, -1));
+  checa("PORTÃO B11: token truncado é recusado", r.status === 401, `HTTP ${r.status}`);
+}
+
+// ── 4) O TESTE QUE DEFINE ESTE BLOCO ──────────────────────────
+// Token certo, evento dizendo "confirmada", e o Asaas dizendo PENDENTE.
+// Com a Stripe isto era impossível (o corpo era assinado); aqui é o ataque
+// mais barato que existe, e ele tem que morrer na conferência.
+{
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_pendente"), TOKEN);
   checa(
-    "PORTÃO B11: assinatura feita com outro segredo é recusada",
-    r.status === 400,
-    `HTTP ${r.status}`,
-  );
-}
-
-// ── 4) corpo trocado DEPOIS de assinado ───────────────────────
-// É o ataque real: pegar um evento legítimo e mudar o oficina_id.
-{
-  const original = assinaturaAtiva();
-  const cabecalho = assinar(original, SEGREDO, agora());
-  const adulterado = original.replace(OFICINA, "b0000000-0000-4000-8000-000000000002");
-  const r = await bater(adulterado, cabecalho);
-  checa(
-    "PORTÃO B11: corpo adulterado depois de assinado é recusado",
-    r.status === 400,
-    `HTTP ${r.status}`,
-  );
-}
-
-// ── 5) assinatura velha (reenvio) ─────────────────────────────
-{
-  const corpo = assinaturaAtiva();
-  const velho = agora() - 3600;
-  const r = await bater(corpo, assinar(corpo, SEGREDO, velho));
-  checa(
-    "PORTÃO B11: assinatura fora da janela de tempo é recusada",
-    r.status === 400,
-    `HTTP ${r.status}`,
-  );
-}
-
-// ── 6) evento válido que este produto não usa ─────────────────
-{
-  const corpo = JSON.stringify({
-    id: "evt_2",
-    type: "customer.created",
-    data: { object: { id: "cus_9", metadata: {} } },
-  });
-  const r = await bater(corpo, assinar(corpo, SEGREDO, agora()));
-  checa(
-    "PORTÃO B11: evento desconhecido responde 200 e diz que ignorou",
+    "PORTÃO B11: aviso “pago” sobre cobrança PENDENTE no Asaas não libera nada",
     r.status === 200 && r.json?.estado === "ignorado",
-    `HTTP ${r.status} ${r.json?.motivo ?? ""}`,
+    `HTTP ${r.status} ${r.json?.estado} — ${r.json?.motivo ?? r.json?.erro ?? ""}`,
   );
 }
 
-// ── 7) assinatura sem dono ────────────────────────────────────
-// Pagamento que chega sem oficina_id não pode virar acesso para ninguém.
+// ── 5) cobrança que não existe no Asaas ───────────────────────
 {
-  const corpo = JSON.stringify({
-    id: "evt_3",
-    type: "customer.subscription.updated",
-    data: {
-      object: {
-        id: "sub_x",
-        status: "active",
-        customer: "cus_x",
-        metadata: {},
-        items: { data: [{ price: { id: "price_medio" } }] },
-      },
-    },
-  });
-  const r = await bater(corpo, assinar(corpo, SEGREDO, agora()));
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_inventada_por_atacante"), TOKEN);
   checa(
-    "PORTÃO B11: assinatura sem oficina_id é ignorada, não aplicada",
+    "PORTÃO B11: aviso de cobrança inexistente é ignorado, não aplicado",
+    r.status === 200 && r.json?.estado === "ignorado" && /não existe/i.test(r.json?.motivo ?? ""),
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
+  );
+}
+
+// ── 6) Asaas fora do ar: 500, para reenviar ───────────────────
+// Não conseguir perguntar NÃO é "não pagou" (regra 3).
+{
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_explode"), TOKEN);
+  checa(
+    "PORTÃO B11: falha ao CONFERIR devolve 500 (o Asaas reenvia), nunca 200",
+    r.status === 500,
+    `HTTP ${r.status} ${r.json?.erro ?? ""}`,
+  );
+}
+
+// ── 7) cobrança paga de outra oficina ─────────────────────────
+{
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_sem_dono"), TOKEN);
+  checa(
+    "PORTÃO B11: cobrança conferida e sem dono não libera ninguém",
+    r.status === 200 && r.json?.estado === "ignorado" && /oficina/i.test(r.json?.motivo ?? ""),
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
+  );
+}
+
+// ── 8) evento que este produto não usa ────────────────────────
+{
+  const r = await bater(
+    { event: "PAYMENT_BANK_SLIP_VIEWED", payment: { id: "pay_confirmada" } },
+    TOKEN,
+  );
+  checa(
+    "PORTÃO B11: evento irrelevante responde 200 e diz que ignorou",
     r.status === 200 && r.json?.estado === "ignorado",
-    `HTTP ${r.status} ${r.json?.motivo ?? ""}`,
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
   );
 }
 
-// ── 8) o caminho certo grava ──────────────────────────────────
+// ── 9) o caminho certo grava ──────────────────────────────────
 {
-  const corpo = assinaturaAtiva();
-  const r = await bater(corpo, assinar(corpo, SEGREDO, agora()));
+  const r = await bater(eventoDeCobranca("PAYMENT_CONFIRMED", "pay_confirmada"), TOKEN);
   checa(
-    "PORTÃO B11: evento legítimo é aplicado",
+    "PORTÃO B11: cobrança confirmada NO ASAAS é aplicada",
     r.status === 200 && r.json?.estado === "aplicado",
-    `HTTP ${r.status} ${r.json?.motivo ?? r.json?.erro ?? ""}`,
+    `${r.json?.estado} — ${r.json?.motivo ?? r.json?.erro ?? ""}`,
   );
   checa(
-    "o motivo aplicado nomeia o plano reconhecido pelo price",
-    /plano medio/.test(r.json?.motivo ?? ""),
+    "o motivo diz até quando o acesso vale",
+    /acesso até \d{4}-\d{2}-\d{2}/.test(r.json?.motivo ?? ""),
     r.json?.motivo ?? "",
   );
 }
 
-// ── 9) cartão recusado vira "vencida", não "cancelada" ────────
+// ── 10) vencida vira pendência, não cancelamento ──────────────
 {
-  const corpo = JSON.stringify({
-    id: "evt_4",
-    type: "invoice.payment_failed",
-    data: { object: { id: "in_1", metadata: { oficina_id: OFICINA } } },
-  });
-  const r = await bater(corpo, assinar(corpo, SEGREDO, agora()));
+  const r = await bater(eventoDeCobranca("PAYMENT_OVERDUE", "pay_vencida"), TOKEN);
   checa(
-    "PORTÃO B11: pagamento falho é aplicado como pendência, com motivo",
-    r.status === 200 && r.json?.estado === "aplicado" && /não confirmado/i.test(r.json?.motivo ?? ""),
-    `${r.json?.estado} ${r.json?.motivo ?? ""}`,
+    "PORTÃO B11: cobrança vencida é aplicada como pendência de pagamento",
+    r.status === 200 &&
+      r.json?.estado === "aplicado" &&
+      /não confirmado/i.test(r.json?.motivo ?? "") &&
+      !/cancel/i.test(r.json?.motivo ?? ""),
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
   );
 }
 
-// ── 10) price desconhecido não zera o plano ───────────────────
+// ── 11) assinatura ATIVA não libera acesso sozinha ────────────
+// Assinatura ativa não é mensalidade paga. Quem libera é a cobrança.
 {
-  const corpo = assinaturaAtiva({ items: { data: [{ price: { id: "price_que_ninguem_mapeou" } }] } });
-  const r = await bater(corpo, assinar(corpo, SEGREDO, agora()));
+  const r = await bater(
+    { event: "SUBSCRIPTION_UPDATED", subscription: { id: "sub_teste", status: "ACTIVE" } },
+    TOKEN,
+  );
   checa(
-    "price não mapeado mantém o plano e diz isso",
-    r.status === 200 && /não mapeado — plano mantido/.test(r.json?.motivo ?? ""),
+    "PORTÃO B11: assinatura ativa, sozinha, não vira acesso",
+    r.status === 200 && r.json?.estado === "ignorado" && /cobrança paga/i.test(r.json?.motivo ?? ""),
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
+  );
+}
+
+// ── 12) assinatura de outra pessoa, removida: não mexe em ninguém ──
+{
+  const r = await bater(
+    { event: "SUBSCRIPTION_DELETED", subscription: { id: "sub_sumida" } },
+    TOKEN,
+  );
+  checa(
+    "PORTÃO B11: assinatura removida que não é de ninguém daqui não mexe em nada",
+    r.status === 200 && r.json?.estado === "ignorado" && /oficina/i.test(r.json?.motivo ?? ""),
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
+  );
+}
+
+// ── 13) a assinatura DESTA oficina, removida no Asaas ─────────
+// Reproduz a sequência real: a assinatura gravada aqui (`sub_teste`) passa a
+// não existir lá, e o 404 é a CONFIRMAÇÃO do cancelamento.
+{
+  fs.writeFileSync("/tmp/plano-pago", "1");
+  fs.writeFileSync("/tmp/assinatura-removida", "1");
+  const r = await bater(
+    { event: "SUBSCRIPTION_DELETED", subscription: { id: "sub_teste" } },
+    TOKEN,
+  );
+  fs.unlinkSync("/tmp/assinatura-removida");
+  fs.unlinkSync("/tmp/plano-pago");
+  checa(
+    "PORTÃO B11: assinatura removida no Asaas vira cancelada",
+    r.status === 200 && r.json?.estado === "aplicado" && /cancelada/i.test(r.json?.motivo ?? ""),
+    `${r.json?.estado} — ${r.json?.motivo ?? ""}`,
+  );
+  checa(
+    "e o motivo diz que o período já pago não é tirado",
+    /sem tirar o período/i.test(r.json?.motivo ?? ""),
     r.json?.motivo ?? "",
   );
 }
@@ -211,16 +225,13 @@ ok.forEach((o) => console.log("  ✓", o));
 falhas.forEach((f) => console.log("  ✗", f));
 console.log(`\n${ok.length} passaram, ${falhas.length} falharam`);
 console.log(
-  "\nNÃO provado aqui: criar checkout e portal na Stripe (precisa de chave real).",
+  "\nNÃO provado aqui: criar cliente, criar assinatura e abrir fatura no Asaas\n" +
+    "de verdade (precisa de chave e conta). Ver docs/ligar-a-cobranca.md.",
 );
-// Se ATÉ o evento legítimo foi recusado, o mais provável não é defeito: é o
-// roteiro e o servidor estarem usando segredos diferentes. Dizer isso poupa
-// uma hora de caça ao bug errado.
-if (falhas.some((f) => /evento legítimo/.test(f))) {
+if (falhas.some((f) => /token sem|POST sem token/.test(f) === false && /aplicada/.test(f))) {
   console.log(
-    "\nDica: o servidor lê STRIPE_WEBHOOK_SECRET do .env.local e este roteiro lê do\n" +
-      "shell. Exporte o MESMO valor antes de rodar:\n" +
-      "  export STRIPE_WEBHOOK_SECRET=<o mesmo do .env.local>",
+    "\nDica: o servidor lê ASAAS_WEBHOOK_TOKEN do .env.local e este roteiro lê do\n" +
+      "shell. Exporte o MESMO valor antes de rodar.",
   );
 }
 process.exit(falhas.length ? 1 : 0);

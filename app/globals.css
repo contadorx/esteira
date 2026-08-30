@@ -612,3 +612,7 @@ a.cartao-num:hover { color: var(--aco); text-decoration: underline; }
 }
 .selo { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 99px; padding: 3px 9px; background: var(--aco-fraco); color: var(--aco); white-space: nowrap; }
 .faixa-plano.incerta { background: var(--aco-fraco); border-bottom-color: var(--aco); color: var(--aco); }
+.plano-opcao { display: block; cursor: pointer; position: relative; }
+.plano-opcao input[type="radio"] { position: absolute; top: 14px; right: 14px; accent-color: var(--aco); width: 17px; height: 17px; }
+.plano-opcao:has(input:checked) { border-color: var(--aco); background: var(--aco-fraco); box-shadow: var(--sombra); }
+.conta-acoes-assinatura { margin-top: 16px; gap: 10px; flex-wrap: wrap; }

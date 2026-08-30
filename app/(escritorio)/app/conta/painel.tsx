@@ -16,8 +16,9 @@
 import { useActionState, useState, useTransition } from "react";
 import { curtaBR } from "@/lib/datas";
 import {
-  abrirPortalDeCobranca,
+  abrirFatura,
   assinarPlano,
+  cancelarMinhaAssinatura,
   convidarPessoa,
   mudarAtivoDoMembro,
   trocarMinhaSenha,
@@ -80,6 +81,7 @@ export default function PainelConta({
 }) {
   const [resConvite, acaoConvite, convidando] = useActionState(convidarPessoa, CONTA_OCIOSA);
   const [resSenha, acaoSenha, trocando] = useActionState(trocarMinhaSenha, CONTA_OCIOSA);
+  const [resAssinar, acaoAssinar, assinando] = useActionState(assinarPlano, CONTA_OCIOSA);
   const [recado, setRecado] = useState<ResultadoConta>(CONTA_OCIOSA);
   const [pendente, iniciar] = useTransition();
 
@@ -196,40 +198,98 @@ export default function PainelConta({
             </p>
           ) : (
             <>
-              <div className="planos-grade">
-                {pagos.map((p) => (
-                  <div
-                    key={p.codigo}
-                    className={`plano-opcao${p.codigo === conta.plano ? " atual" : ""}`}
-                  >
-                    <div className="plano-opcao-nome">{p.nome}</div>
-                    <div className="plano-opcao-preco">{emReais(p.preco_centavos)}<span>/mês</span></div>
-                    <div className="obs">
-                      até {p.limite_pedidos_ativos ?? "—"} pedidos em andamento
-                    </div>
-                    {p.codigo === conta.plano ? (
-                      <div className="plano-opcao-atual">plano atual</div>
-                    ) : (
-                      <button
-                        className="btn btn-aco cheia"
-                        disabled={pendente}
-                        onClick={() => acionar(() => assinarPlano(p.codigo))}
-                      >
-                        Assinar
-                      </button>
-                    )}
+              {/*
+                Um formulário só, com os planos como opção: o Asaas exige
+                CPF/CNPJ para criar o cadastro de cobrança, e pedir isso numa
+                segunda tela depois de clicar "Assinar" é o jeito conhecido de
+                perder a pessoa no meio.
+              */}
+              <form className="form" action={acaoAssinar}>
+                <div className="planos-grade">
+                  {pagos.map((p) => (
+                    <label
+                      key={p.codigo}
+                      className={`plano-opcao${p.codigo === conta.plano ? " atual" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="plano"
+                        value={p.codigo}
+                        defaultChecked={p.codigo === (conta.plano === "teste" ? "medio" : conta.plano)}
+                      />
+                      <div className="plano-opcao-nome">{p.nome}</div>
+                      <div className="plano-opcao-preco">
+                        {emReais(p.preco_centavos)}
+                        <span>/mês</span>
+                      </div>
+                      <div className="obs">
+                        até {p.limite_pedidos_ativos ?? "—"} pedidos em andamento
+                      </div>
+                      {p.codigo === conta.plano && conta.status === "ativa" && (
+                        <div className="plano-opcao-atual">plano atual</div>
+                      )}
+                    </label>
+                  ))}
+                </div>
+
+                {/*
+                  O nome vem primeiro e a observação fica FORA do par: dentro
+                  de um `.dupla`, o texto de ajuda empurrava só o campo do
+                  lado e os dois deixavam de alinhar.
+                */}
+                <div className="dupla">
+                  <div className="campo">
+                    <label htmlFor="nome">Nome na cobrança</label>
+                    <input id="nome" name="nome" defaultValue={oficina ?? ""} />
                   </div>
-                ))}
-              </div>
-              <p className="obs">Usuários ilimitados em qualquer plano.</p>
-              {conta.provedor && (
-                <button
-                  className="btn btn-borda"
-                  disabled={pendente}
-                  onClick={() => acionar(abrirPortalDeCobranca)}
-                >
-                  Trocar cartão, ver faturas ou cancelar
+                  <div className="campo">
+                    <label htmlFor="documento">CPF ou CNPJ de quem paga *</label>
+                    <input
+                      id="documento"
+                      name="documento"
+                      required
+                      inputMode="numeric"
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                </div>
+                <p className="obs">
+                  O CPF/CNPJ vai direto para o Asaas, que emite a cobrança. A
+                  Esteira não guarda esse número.
+                </p>
+
+                <Recado r={resAssinar} />
+
+                <button className="btn btn-aco" type="submit" disabled={assinando}>
+                  {assinando
+                    ? "Abrindo o pagamento…"
+                    : conta.tem_assinatura
+                      ? "Trocar de plano"
+                      : "Assinar e pagar"}
                 </button>
+                <p className="obs">
+                  Você escolhe <b>Pix, boleto ou cartão</b> na tela de pagamento.
+                  Usuários ilimitados em qualquer plano; mensal, sem fidelidade.
+                </p>
+              </form>
+
+              {conta.tem_assinatura && (
+                <div className="form-acoes conta-acoes-assinatura">
+                  <button
+                    className="btn btn-borda"
+                    disabled={pendente}
+                    onClick={() => acionar(abrirFatura)}
+                  >
+                    Ver a cobrança em aberto
+                  </button>
+                  <button
+                    className="btn btn-borda"
+                    disabled={pendente}
+                    onClick={() => acionar(cancelarMinhaAssinatura)}
+                  >
+                    Cancelar assinatura
+                  </button>
+                </div>
               )}
             </>
           )}

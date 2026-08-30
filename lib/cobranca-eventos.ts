@@ -1,40 +1,42 @@
 /**
- * cobranca-eventos.ts — a tradução do evento do provedor para o nosso estado.
+ * cobranca-eventos.ts — do aviso do Asaas até o que gravar.
  *
- * Está separado do `lib/cobranca.ts` de propósito: aqui não há rede, não há
- * chave e não há efeito colateral. É uma função pura de payload → o que
- * gravar. Assim ela é **testável sem conta em provedor nenhum**, e o portão
- * B11 a exercita com eventos montados à mão, incluindo os torcidos.
+ * Continua sem rede, sem chave e sem efeito colateral: são funções puras de
+ * payload → decisão. É o que as torna testáveis sem conta em provedor nenhum,
+ * e o portão B11 as exercita com eventos montados à mão, inclusive torcidos.
  *
- * ── A regra que define o desenho ──────────────────────────────
- * Evento que não sabemos interpretar NÃO vira gravação. Ele é ignorado com
- * motivo escrito e responde 200 — porque devolver erro faria a Stripe
- * reenviar para sempre, e devolver 200 fingindo que aplicou esconderia um
- * furo. "Ignorado porque X" é a terceira porta (regra 14).
+ * ── A mudança que o Asaas trouxe ──────────────────────────────
+ * A Stripe assinava cada evento com HMAC; dava para provar que o corpo veio
+ * dela e não foi mexido. O Asaas autentica com um **token estático** no
+ * cabeçalho: quem descobrir o token forja qualquer evento, para sempre.
  *
- * ── Por que `vencida` e não `cancelada` quando o cartão falha ─
- * São coisas diferentes: `vencida` é "o dinheiro não veio, a conta continua
- * de pé e destravável"; `cancelada` é "essa pessoa foi embora". Misturar as
- * duas faria o produto tratar um cartão recusado como uma despedida.
+ * Por isso o caminho aqui tem DUAS etapas, e não uma:
+ *   1. `interpretarEvento` diz apenas **o que ir conferir** (uma cobrança ou
+ *      uma assinatura). Ele não produz mais nenhum estado sozinho.
+ *   2. `patchDaCobranca` / `patchDaAssinatura` transformam em gravação o que
+ *      voltou da **consulta autenticada** ao Asaas.
+ *
+ * Ou seja: o aviso virou um "vá olhar". O que decide é a API. Um POST forjado
+ * com o token certo, no máximo, faz o servidor perguntar ao Asaas — e ouvir
+ * que a cobrança não existe ou não está paga.
  */
+
+import { diaMaior, mesSeguinte } from "@/lib/datas";
 
 export type StatusAssinatura = "teste" | "ativa" | "vencida" | "cancelada";
 
 export interface PatchAssinatura {
   status?: StatusAssinatura;
-  plano?: string;
   periodo_ate?: string | null;
   provedor?: string;
   provedor_cliente?: string | null;
   provedor_assinatura?: string | null;
 }
 
-export interface LeituraDoEvento {
-  acao: "atualizar" | "ignorar";
-  oficinaId: string | null;
-  patch: PatchAssinatura | null;
-  motivo: string;
-}
+export type LeituraDoEvento =
+  | { acao: "conferir_cobranca"; cobrancaId: string; motivo: string }
+  | { acao: "conferir_assinatura"; assinaturaId: string; motivo: string }
+  | { acao: "ignorar"; motivo: string };
 
 type Json = Record<string, unknown>;
 
@@ -42,149 +44,142 @@ const texto = (v: unknown): string | null => (typeof v === "string" && v ? v : n
 const objeto = (v: unknown): Json | null =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : null;
 
-/** Segundos epoch → "AAAA-MM-DD". Sem passar por fuso: a data é a do provedor. */
-function dataDeEpoch(v: unknown): string | null {
-  if (typeof v !== "number" || !Number.isFinite(v)) return null;
-  return new Date(v * 1000).toISOString().slice(0, 10);
+/**
+ * Eventos de cobrança que MEXEM no acesso. Os outros (boleto visualizado,
+ * split liquidado, análise de risco…) existem e não dizem nada sobre estar
+ * pago — não vale acordar o servidor por eles.
+ */
+const COBRANCA_RELEVANTE = new Set([
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_RECEIVED",
+  "PAYMENT_RECEIVED_IN_CASH",
+  "PAYMENT_OVERDUE",
+  "PAYMENT_REFUNDED",
+  "PAYMENT_PARTIALLY_REFUNDED",
+  "PAYMENT_CHARGEBACK_REQUESTED",
+  "PAYMENT_RECEIVED_IN_CASH_UNDONE",
+  "PAYMENT_DELETED",
+  "PAYMENT_RESTORED",
+  "PAYMENT_UPDATED",
+]);
+
+const ASSINATURA_RELEVANTE = new Set([
+  "SUBSCRIPTION_DELETED",
+  "SUBSCRIPTION_INACTIVATED",
+  "SUBSCRIPTION_UPDATED",
+]);
+
+export function interpretarEvento(evento: unknown): LeituraDoEvento {
+  const evt = objeto(evento);
+  const tipo = texto(evt?.event);
+  if (!tipo) return { acao: "ignorar", motivo: "evento sem tipo" };
+
+  if (COBRANCA_RELEVANTE.has(tipo)) {
+    const cobranca = objeto(evt?.payment);
+    const id = texto(cobranca?.id);
+    if (!id) return { acao: "ignorar", motivo: `${tipo} sem id de cobrança` };
+    return { acao: "conferir_cobranca", cobrancaId: id, motivo: tipo };
+  }
+
+  if (ASSINATURA_RELEVANTE.has(tipo)) {
+    const assinatura = objeto(evt?.subscription);
+    const id = texto(assinatura?.id);
+    if (!id) return { acao: "ignorar", motivo: `${tipo} sem id de assinatura` };
+    return { acao: "conferir_assinatura", assinaturaId: id, motivo: tipo };
+  }
+
+  return { acao: "ignorar", motivo: `evento "${tipo}" não é usado por este produto` };
+}
+
+/** Os status de cobrança do Asaas que significam "o dinheiro entrou". */
+const PAGOS = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
+/** Os que significam "não entrou, e a conta está em atraso". */
+const ATRASADOS = new Set([
+  "OVERDUE",
+  "REFUNDED",
+  "PARTIALLY_REFUNDED",
+  "CHARGEBACK_REQUESTED",
+  "CHARGEBACK_DISPUTE",
+  "AWAITING_CHARGEBACK_REVERSAL",
+]);
+
+export interface CobrancaConferida {
+  status: string | null;
+  vencimento: string | null;
+  assinatura: string | null;
+  cliente: string | null;
 }
 
 /**
- * O status da Stripe traduzido no nosso.
- * `trialing` vira `ativa` de propósito: quem está em teste PELO PROVEDOR já
- * deu cartão — é diferente do nosso `teste`, que é o período sem cartão.
+ * O que gravar a partir de uma cobrança já CONFERIDA na API.
+ *
+ * `hoje` entra por parâmetro, e vem de `lib/datas.hoje()` — o único relógio
+ * do produto (regra 8). Não existe `new Date()` aqui dentro.
+ *
+ * **Até quando vale o período pago:** um mês a partir do vencimento OU de
+ * hoje, o que for maior. Só o vencimento puniria quem pagou com quarenta dias
+ * de atraso — o dinheiro entrou, e a pessoa ficaria travada mesmo assim.
  */
-function traduzirStatus(s: string | null): StatusAssinatura | null {
-  switch (s) {
-    case "active":
-    case "trialing":
-      return "ativa";
-    case "past_due":
-    case "unpaid":
-    case "incomplete":
-    case "incomplete_expired":
-      return "vencida";
-    case "canceled":
-      return "cancelada";
-    default:
-      return null;
+export function patchDaCobranca(
+  c: CobrancaConferida,
+  hoje: string,
+): { patch: PatchAssinatura | null; motivo: string } {
+  const s = c.status ?? "";
+  if (PAGOS.has(s)) {
+    const base = c.vencimento ? diaMaior(c.vencimento, hoje) : hoje;
+    return {
+      patch: {
+        status: "ativa",
+        periodo_ate: mesSeguinte(base),
+        provedor: "asaas",
+        provedor_cliente: c.cliente,
+        provedor_assinatura: c.assinatura,
+      },
+      motivo: `cobrança ${s.toLowerCase()} — acesso até ${mesSeguinte(base)}`,
+    };
   }
+  if (ATRASADOS.has(s)) {
+    return {
+      patch: { status: "vencida", provedor: "asaas" },
+      motivo: `cobrança ${s.toLowerCase()} — pagamento não confirmado`,
+    };
+  }
+  // PENDING, AWAITING_RISK_ANALYSIS, DELETED… são estados legítimos que não
+  // dizem nada sobre acesso. Ignorar com motivo é a terceira porta (regra 14).
+  return { patch: null, motivo: `cobrança em "${s || "?"}" — nada a mudar` };
 }
 
-/** O price id de volta ao código do plano, pelo mapa do ambiente. */
-export function planoDoPreco(
-  precoId: string | null,
-  mapa: Record<string, string | undefined>,
-): string | null {
-  if (!precoId) return null;
-  for (const [codigo, valor] of Object.entries(mapa)) {
-    if (valor && valor.trim() === precoId) return codigo;
+/**
+ * O que gravar a partir de uma assinatura conferida.
+ *
+ * `sumiu` (404 na API) é a **confirmação** do cancelamento, não uma falha:
+ * assinatura removida no Asaas não existe mais para ser consultada.
+ *
+ * Cancelar NÃO tira o acesso na hora — `periodo_ate` continua valendo, e
+ * `conta_da_oficina` respeita isso. Quem cancela no dia 2 pagou até o fim do
+ * período; travar na hora seria ficar com o dinheiro e tirar o serviço.
+ */
+export function patchDaAssinatura(a: {
+  status: string | null;
+  sumiu: boolean;
+}): { patch: PatchAssinatura | null; motivo: string } {
+  if (a.sumiu) {
+    return {
+      patch: { status: "cancelada", provedor: "asaas" },
+      motivo: "assinatura removida no Asaas — cancelada, sem tirar o período já pago",
+    };
   }
-  return null;
-}
-
-export function interpretarEvento(
-  evento: unknown,
-  mapaDePrecos: Record<string, string | undefined>,
-): LeituraDoEvento {
-  const evt = objeto(evento);
-  const tipo = texto(evt?.type);
-  const dados = objeto(objeto(evt?.data)?.object);
-  if (!tipo || !dados) {
-    return { acao: "ignorar", oficinaId: null, patch: null, motivo: "evento sem tipo ou sem objeto" };
+  const s = (a.status ?? "").toUpperCase();
+  if (s === "INACTIVE" || s === "EXPIRED") {
+    return {
+      patch: { status: "cancelada", provedor: "asaas" },
+      motivo: `assinatura ${s.toLowerCase()} no Asaas`,
+    };
   }
-
-  const metadata = objeto(dados.metadata);
-  const oficinaId =
-    texto(metadata?.oficina_id) ?? texto(dados.client_reference_id) ?? null;
-
-  switch (tipo) {
-    case "checkout.session.completed": {
-      if (!oficinaId)
-        return {
-          acao: "ignorar",
-          oficinaId: null,
-          patch: null,
-          motivo: "checkout sem oficina_id — pagamento sem dono não vira acesso",
-        };
-      // Ainda não temos o período: ele chega em `customer.subscription.*`.
-      // Gravar os ids agora é o que permite abrir o portal do cliente já.
-      return {
-        acao: "atualizar",
-        oficinaId,
-        motivo: "checkout concluído: guardando cliente e assinatura",
-        patch: {
-          provedor: "stripe",
-          provedor_cliente: texto(dados.customer),
-          provedor_assinatura: texto(dados.subscription),
-        },
-      };
-    }
-
-    case "customer.subscription.created":
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      if (!oficinaId)
-        return {
-          acao: "ignorar",
-          oficinaId: null,
-          patch: null,
-          motivo: "assinatura sem oficina_id no metadata",
-        };
-
-      const cancelada = tipo.endsWith("deleted");
-      const status = cancelada ? "cancelada" : traduzirStatus(texto(dados.status));
-      if (!status)
-        return {
-          acao: "ignorar",
-          oficinaId,
-          patch: null,
-          motivo: `status "${texto(dados.status) ?? "?"}" não reconhecido — nada gravado`,
-        };
-
-      const itens = objeto(dados.items)?.data;
-      const primeiro = Array.isArray(itens) ? objeto(itens[0]) : null;
-      const precoId = texto(objeto(primeiro?.price)?.id);
-      const plano = planoDoPreco(precoId, mapaDePrecos);
-
-      const patch: PatchAssinatura = {
-        status,
-        provedor: "stripe",
-        provedor_cliente: texto(dados.customer),
-        provedor_assinatura: texto(dados.id),
-        periodo_ate: dataDeEpoch(dados.current_period_end),
-      };
-      // Plano desconhecido não sobrescreve o que está gravado: melhor manter
-      // o plano antigo e o acesso de pé do que zerar por um price novo que
-      // ninguém mapeou ainda.
-      if (plano) patch.plano = plano;
-
-      return {
-        acao: "atualizar",
-        oficinaId,
-        patch,
-        motivo: plano
-          ? `assinatura ${status} no plano ${plano}`
-          : `assinatura ${status} (price ${precoId ?? "?"} não mapeado — plano mantido)`,
-      };
-    }
-
-    case "invoice.payment_failed": {
-      if (!oficinaId)
-        return { acao: "ignorar", oficinaId: null, patch: null, motivo: "fatura sem oficina_id" };
-      return {
-        acao: "atualizar",
-        oficinaId,
-        patch: { status: "vencida", provedor: "stripe" },
-        motivo: "pagamento não confirmado",
-      };
-    }
-
-    default:
-      return {
-        acao: "ignorar",
-        oficinaId,
-        patch: null,
-        motivo: `evento "${tipo}" não é usado por este produto`,
-      };
+  if (s === "ACTIVE") {
+    // Assinatura ativa não é o mesmo que mensalidade paga: quem diz isso é a
+    // cobrança. Gravar "ativa" aqui liberaria acesso sem dinheiro nenhum.
+    return { patch: null, motivo: "assinatura ativa — quem libera acesso é a cobrança paga" };
   }
+  return { patch: null, motivo: `assinatura em "${s || "?"}" — nada a mudar` };
 }

@@ -188,30 +188,41 @@ teste normal, teste acabando, teste vencido e plano pago.
 > o B1 importando 55 pedidos antes, a faixa de limite tapava a faixa de teste
 > acabando, e o roteiro media o caso errado.
 
-## `portao-b11.mjs` — a cobrança
+## `portao-b11.mjs` — a cobrança (Asaas)
 
-O webhook é a **única porta que escreve "está pago"**. Se ela aceitar um POST
-forjado, quem descobrir o endereço libera o produto para si. É o erro mais
-caro do produto inteiro — e, ao contrário do checkout, é **verificável sem
-conta em provedor nenhum**: a assinatura é um HMAC que o roteiro sabe calcular.
+O webhook é a **única porta que escreve "está pago"**. E o Asaas, ao contrário
+da Stripe, **não assina os eventos**: autentica com um token estático no
+cabeçalho `asaas-access-token`. Quem descobrir o token forja qualquer aviso,
+para sempre — não há HMAC nem janela de tempo que impeça.
 
-Ele bate na porta de sete jeitos e confere que só o último grava: sem
-cabeçalho, assinatura inventada, assinatura de **outro segredo**, corpo
-adulterado **depois** de assinado, relógio fora da janela, evento
-desconhecido, evento sem `oficina_id` — e, por fim, o legítimo.
+Por isso o produto não acredita no aviso: todo evento é **conferido de volta
+na API do Asaas** antes de virar acesso. O roteiro roda contra um Asaas de
+mentira no mesmo servidor do stub, onde **o id da cobrança escolhe a
+resposta** (`pay_confirmada`, `pay_pendente`, `pay_vencida`, `pay_explode`, id
+desconhecido → 404).
+
+O teste que define o bloco é o nº 4: **um POST com o token certo dizendo
+"confirmada", sobre uma cobrança que o Asaas diz estar PENDENTE, não pode
+liberar nada.** Com a Stripe isso era impossível (o corpo era assinado); aqui
+é o ataque mais barato que existe.
+
+Os outros catorze: sem token, token errado, token truncado, cobrança
+inexistente, provedor fora do ar (**500**, para reenviar — não conseguir
+perguntar não é "não pagou"), cobrança sem dono, evento irrelevante, o caminho
+certo, vencida virando pendência (não cancelamento), assinatura ativa que
+**não** libera sozinha, e a assinatura desta oficina removida lá.
 
 ```bash
-export STRIPE_WEBHOOK_SECRET=<o mesmo do .env.local>
+export ASAAS_WEBHOOK_TOKEN=<o mesmo do .env.local>
 npm run portao:b11
 ```
 
-O servidor lê o segredo do `.env.local` e o roteiro lê do shell: se os dois
-divergirem, **tudo** é recusado, inclusive o evento legítimo. O roteiro detecta
-esse caso e imprime a dica, em vez de deixar caçar o bug errado.
+O servidor lê o token do `.env.local` e o roteiro lê do shell: se divergirem,
+tudo é recusado com 401.
 
-**Não provado aqui:** criar sessão de checkout e portal na Stripe — fala com
-a Stripe de verdade e não há chave no ambiente. O roteiro da primeira execução
-real está em `docs/ligar-a-cobranca.md`.
+**Não provado aqui:** criar cliente, criar assinatura e abrir fatura no Asaas
+de verdade — precisa de chave e conta. O roteiro da primeira execução real
+está em `docs/ligar-a-cobranca.md`.
 
 ## `portao-b12.mjs` — a gaveta do pedido
 

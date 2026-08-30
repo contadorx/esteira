@@ -52,7 +52,7 @@ Secret na Vercel sem nunca chegar ao navegador.
 | `SUPABASE_URL` | endereço do projeto |
 | `SUPABASE_ANON_KEY` | chave pública (protegida por RLS) |
 | `SUPABASE_SECRET_KEY` | **obrigatória**: autocadastro, criar acesso de pessoa, foto do chão e webhook |
-| `STRIPE_*` | cobrança — opcional; sem elas a tela diz que o pagamento não está ligado |
+| `ASAAS_*` | cobrança — opcional; sem elas a tela diz que o pagamento não está ligado |
 | `SITE_URL` | para onde o checkout volta |
 
 Ligar a cobrança: `docs/ligar-a-cobranca.md`.
@@ -98,11 +98,20 @@ repassa. E a régua está escrita: o que trava é **cadastrar pedido novo**;
 mover pedido, radar, celular do chão e a página do cliente continuam. Nada é
 apagado.
 
+O provedor é o **Asaas** (Pix, boleto e cartão — quem paga escolhe). O preço
+sai da tabela `planos` e vai para a assinatura: não existe preço cadastrado no
+provedor, logo não existe divergência possível entre o que a landing mostra e
+o que é cobrado.
+
 O webhook é a única porta que escreve "está pago", e é a parte mais perigosa
-do produto — `npm run portao:b11` bate nela com assinatura forjada, assinatura
-de outro segredo, corpo adulterado depois de assinado e relógio fora da
-janela. **O checkout em si nunca rodou contra a Stripe** (não há chave aqui);
-o roteiro para a primeira execução real está em `docs/ligar-a-cobranca.md`.
+do produto. **O Asaas não assina os eventos** — autentica com um token
+estático no cabeçalho —, então o aviso não é acreditado: todo evento é
+**conferido de volta na API do Asaas** antes de virar acesso. `npm run
+portao:b11` bate nessa porta com token errado, token truncado, aviso "pago"
+sobre cobrança pendente, cobrança inexistente e provedor fora do ar.
+**Criar cliente, assinatura e fatura no Asaas de verdade nunca rodou** (não há
+chave aqui); o roteiro da primeira execução real está em
+`docs/ligar-a-cobranca.md`.
 
 ## A gaveta do pedido (B12)
 
@@ -197,7 +206,7 @@ npm run portao:b5     # a página do cliente e o aviso
 npm run portao:b6     # o radar de atraso
 npm run portao:b8     # a previsão aprendida (fase 2)
 npm run portao:b9     # conta, plano, pessoas e autocadastro
-npm run portao:b11    # a cobrança (webhook: assinatura forjada, corpo trocado)
+npm run portao:b11    # a cobrança (webhook: token forjado, aviso mentiroso)
 npm run portao:b12    # a gaveta do pedido
 npm run varredura     # as 16 regras, item a item
 npm run portoes       # varredura + todos os portões, em sequência

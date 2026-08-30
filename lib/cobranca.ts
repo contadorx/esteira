@@ -1,29 +1,37 @@
 /**
- * cobranca.ts — a porta única do pagamento (B11).
+ * cobranca.ts — a porta única do pagamento (B11, agora no **Asaas**).
  *
- * Mesmo espírito do `lib/mensagem.ts` (D2): um lugar só fala com o provedor,
- * e o resto do produto não sabe o nome dele. Trocar Stripe por Asaas depois é
- * reescrever este arquivo, não caçar chamadas pelo aplicativo.
+ * O D24 dizia que trocar de provedor seria reescrever este arquivo, e não
+ * caçar chamadas pelo aplicativo. Foi: a troca de Stripe para Asaas mexeu
+ * aqui, no `cobranca-eventos.ts` e na rota do webhook. Nenhuma tela precisou
+ * saber o nome do provedor.
  *
- * ── O que é verdade e o que ainda não foi provado ─────────────
- * A verificação de assinatura do webhook (`conferirAssinatura`) é testada de
- * ponta a ponta no portão B11, com assinatura forjada e relógio adiantado —
- * ela não depende de conta em provedor nenhum. **Criar sessão de checkout e
- * de portal fala com a Stripe de verdade e NÃO foi executado**: não há chave
- * neste ambiente. Está escrito assim no `07-estado-do-projeto`, e a tela de
- * conta diz o mesmo para quem usa (regra 2 — não afirmar o que não se apurou).
+ * ── Três diferenças que MUDAM o desenho, não só a URL ─────────
  *
- * ── A fonte da verdade do "está pago" é o BANCO ───────────────
- * Nada aqui devolve "pagou". Quem escreve `assinaturas` é o webhook, com
- * service role; a tela lê a tabela. Se a Stripe cair, o produto continua
- * sabendo o que sabia — e não passa a achar que ninguém pagou.
+ * 1. **O preço não vive no provedor.** Na Stripe cada plano era um `price_id`
+ *    lá dentro, e o valor podia divergir do nosso. No Asaas a assinatura é
+ *    criada com o `value` que NÓS mandamos — a tabela `planos` passa a ser a
+ *    única fonte do preço, e a divergência deixa de ser possível.
+ *
+ * 2. **O webhook do Asaas não é assinado.** Ele autentica com um **token
+ *    estático** no cabeçalho `asaas-access-token`. Não há HMAC, não há
+ *    janela de tempo: quem descobrir o token forja qualquer evento, para
+ *    sempre. Isso é um degrau abaixo do que a Stripe dava, e a resposta está
+ *    escrita na rota do webhook — **nenhum evento vira acesso sem ser
+ *    conferido de volta na API do Asaas**. O aviso do provedor passa a ser
+ *    só um "vá olhar"; quem decide é a consulta autenticada.
+ *
+ * 3. **Criar cliente exige CPF/CNPJ.** É obrigatório na API do Asaas. Então
+ *    ele é pedido no momento de assinar (não no cadastro — o teste continua
+ *    sem fricção) e **não é guardado no nosso banco**: vai direto para o
+ *    Asaas e some. O produto não guarda cadastro; essa é a fronteira escrita
+ *    no `02-produto`, e ela vale também para o que é nosso.
  */
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 
-const API = "https://api.stripe.com/v1";
+const PADRAO = "https://api.asaas.com/v3";
 
-/** Códigos de plano que podem ser comprados (o `teste` não se compra). */
 export const PLANOS_PAGOS = ["base", "medio", "grande"] as const;
 export type PlanoPago = (typeof PLANOS_PAGOS)[number];
 
@@ -32,19 +40,18 @@ export function ehPlanoPago(codigo: string): codigo is PlanoPago {
 }
 
 function chave(): string | null {
-  const k = process.env.STRIPE_SECRET_KEY?.trim();
+  const k = process.env.ASAAS_API_KEY?.trim();
   return k ? k : null;
 }
 
-/** O preço (price id) de cada plano vive no ambiente, não no código. */
-function precoDoPlano(codigo: PlanoPago): string | null {
-  const mapa: Record<PlanoPago, string | undefined> = {
-    base: process.env.STRIPE_PRECO_BASE,
-    medio: process.env.STRIPE_PRECO_MEDIO,
-    grande: process.env.STRIPE_PRECO_GRANDE,
-  };
-  const v = mapa[codigo]?.trim();
-  return v ? v : null;
+/** Sandbox e produção têm endereços diferentes; o ambiente escolhe. */
+export function enderecoDaApi(): string {
+  return (process.env.ASAAS_URL?.trim() || PADRAO).replace(/\/$/, "");
+}
+
+export function tokenDoWebhook(): string | null {
+  const t = process.env.ASAAS_WEBHOOK_TOKEN?.trim();
+  return t ? t : null;
 }
 
 /**
@@ -52,17 +59,14 @@ function precoDoPlano(codigo: PlanoPago): string | null {
  * de assinar — botão que sempre falha é pior que a frase "ainda não dá".
  */
 export function cobrancaLigada(): boolean {
-  return Boolean(chave()) && PLANOS_PAGOS.every((p) => precoDoPlano(p));
+  return Boolean(chave());
 }
 
 /** O que falta para ligar. Serve ao diagnóstico, sem expor valor nenhum. */
 export function faltaParaCobrar(): string[] {
   const falta: string[] = [];
-  if (!chave()) falta.push("STRIPE_SECRET_KEY");
-  if (!process.env.STRIPE_WEBHOOK_SECRET?.trim()) falta.push("STRIPE_WEBHOOK_SECRET");
-  for (const p of PLANOS_PAGOS) {
-    if (!precoDoPlano(p)) falta.push(`STRIPE_PRECO_${p.toUpperCase()}`);
-  }
+  if (!chave()) falta.push("ASAAS_API_KEY");
+  if (!tokenDoWebhook()) falta.push("ASAAS_WEBHOOK_TOKEN");
   return falta;
 }
 
@@ -74,150 +78,263 @@ export function enderecoDoSite(): string {
   return "http://localhost:3000";
 }
 
-/** POST form-urlencoded, que é o formato que a API da Stripe fala. */
-async function postar(
+type Json = Record<string, unknown>;
+
+/**
+ * Uma chamada à API do Asaas. Rede fora e resposta estranha viram `erro` com
+ * texto — nunca um `null` que o chamador confunda com "não existe" (regra 3).
+ */
+async function chamar(
+  metodo: "GET" | "POST" | "DELETE",
   caminho: string,
-  campos: Record<string, string>,
-): Promise<{ dados: Record<string, unknown> | null; erro: string | null }> {
+  corpo?: Json,
+): Promise<{ dados: Json | null; erro: string | null; httpStatus: number | null }> {
   const k = chave();
-  if (!k) return { dados: null, erro: "cobrança não configurada (falta STRIPE_SECRET_KEY)" };
+  if (!k) return { dados: null, erro: "cobrança não configurada (falta ASAAS_API_KEY)", httpStatus: null };
 
   let resposta: Response;
   try {
-    resposta = await fetch(`${API}${caminho}`, {
-      method: "POST",
+    resposta = await fetch(`${enderecoDaApi()}${caminho}`, {
+      method: metodo,
       headers: {
-        Authorization: `Bearer ${k}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+        access_token: k,
+        "Content-Type": "application/json",
+        "User-Agent": "Esteira",
       },
-      body: new URLSearchParams(campos).toString(),
+      body: corpo ? JSON.stringify(corpo) : undefined,
+      cache: "no-store",
     });
   } catch (e) {
-    // Rede fora não pode virar "não pagou": vira "não consegui perguntar".
-    return { dados: null, erro: `não consegui falar com a Stripe (${e instanceof Error ? e.message : String(e)})` };
+    return {
+      dados: null,
+      httpStatus: null,
+      erro: `não consegui falar com o Asaas (${e instanceof Error ? e.message : String(e)})`,
+    };
   }
 
-  let corpo: Record<string, unknown>;
+  let json: Json;
   try {
-    corpo = (await resposta.json()) as Record<string, unknown>;
+    json = (await resposta.json()) as Json;
   } catch {
-    return { dados: null, erro: `a Stripe respondeu ${resposta.status} sem JSON` };
+    json = {};
   }
+
   if (!resposta.ok) {
-    const err = corpo.error as { message?: string } | undefined;
-    return { dados: null, erro: err?.message ?? `a Stripe respondeu ${resposta.status}` };
+    // O Asaas devolve { errors: [{ code, description }] }.
+    const erros = json.errors;
+    const primeiro = Array.isArray(erros) ? (erros[0] as Json | undefined) : undefined;
+    const texto =
+      (typeof primeiro?.description === "string" && primeiro.description) ||
+      `o Asaas respondeu ${resposta.status}`;
+    return { dados: null, erro: texto, httpStatus: resposta.status };
   }
-  return { dados: corpo, erro: null };
+  return { dados: json, erro: null, httpStatus: resposta.status };
+}
+
+const texto = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+
+/** Só dígitos: o Asaas recusa CPF/CNPJ com ponto e traço em alguns fluxos. */
+export function soDigitos(v: string): string {
+  return v.replace(/\D/g, "");
 }
 
 /**
- * Sessão de checkout. `oficina_id` vai em `client_reference_id` E em
- * `metadata` — é por ele que o webhook sabe de quem é o pagamento, e um
- * pagamento que chega sem dono é dinheiro recebido sem serviço entregue.
+ * CPF (11) ou CNPJ (14) com dígito verificador conferido.
+ *
+ * Vale a conta em vez de só contar caracteres: um número inventado passa no
+ * tamanho, é aceito aqui, e só falha lá no Asaas — com uma mensagem em inglês
+ * no meio do checkout. Conferir antes é o que permite dizer "esse CPF não
+ * confere" na hora, no campo certo.
  */
-export async function criarCheckout(opcoes: {
+export function documentoValido(bruto: string): boolean {
+  const d = soDigitos(bruto);
+  if (d.length === 11) {
+    if (/^(\d)\1{10}$/.test(d)) return false;
+    const dig = (ate: number, peso: number) => {
+      let s = 0;
+      for (let i = 0; i < ate; i++) s += Number(d[i]) * (peso - i);
+      const r = (s * 10) % 11;
+      return r === 10 ? 0 : r;
+    };
+    return dig(9, 10) === Number(d[9]) && dig(10, 11) === Number(d[10]);
+  }
+  if (d.length === 14) {
+    if (/^(\d)\1{13}$/.test(d)) return false;
+    const calc = (ate: number) => {
+      const pesos = ate === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+                               : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      let s = 0;
+      for (let i = 0; i < ate; i++) s += Number(d[i]) * pesos[i];
+      const r = s % 11;
+      return r < 2 ? 0 : 11 - r;
+    };
+    return calc(12) === Number(d[12]) && calc(13) === Number(d[13]);
+  }
+  return false;
+}
+
+/** Cria o cliente no Asaas. `externalReference` é a nossa oficina. */
+export async function criarCliente(opcoes: {
   oficinaId: string;
-  plano: PlanoPago;
+  nome: string;
+  documento: string;
   email: string | null;
-  clienteExistente: string | null;
-}): Promise<{ url: string | null; erro: string | null }> {
-  const preco = precoDoPlano(opcoes.plano);
-  if (!preco) return { url: null, erro: `o plano ${opcoes.plano} não tem preço configurado` };
-
-  const base = enderecoDoSite();
-  const campos: Record<string, string> = {
-    mode: "subscription",
-    "line_items[0][price]": preco,
-    "line_items[0][quantity]": "1",
-    client_reference_id: opcoes.oficinaId,
-    "metadata[oficina_id]": opcoes.oficinaId,
-    "subscription_data[metadata][oficina_id]": opcoes.oficinaId,
-    success_url: `${base}/app/conta?assinou=1`,
-    cancel_url: `${base}/app/conta?assinou=0`,
-    allow_promotion_codes: "true",
-  };
-  if (opcoes.clienteExistente) campos.customer = opcoes.clienteExistente;
-  else if (opcoes.email) campos.customer_email = opcoes.email;
-
-  const { dados, erro } = await postar("/checkout/sessions", campos);
-  if (erro) return { url: null, erro };
-  const url = dados?.url;
-  if (typeof url !== "string") return { url: null, erro: "a Stripe não devolveu o endereço do checkout" };
-  return { url, erro: null };
-}
-
-/** Portal do cliente: trocar cartão, ver faturas, cancelar. */
-export async function criarPortal(
-  clienteId: string,
-): Promise<{ url: string | null; erro: string | null }> {
-  const { dados, erro } = await postar("/billing_portal/sessions", {
-    customer: clienteId,
-    return_url: `${enderecoDoSite()}/app/conta`,
+}): Promise<{ id: string | null; erro: string | null }> {
+  const { dados, erro } = await chamar("POST", "/customers", {
+    name: opcoes.nome,
+    cpfCnpj: soDigitos(opcoes.documento),
+    email: opcoes.email ?? undefined,
+    externalReference: opcoes.oficinaId,
+    notificationDisabled: false,
   });
-  if (erro) return { url: null, erro };
-  const url = dados?.url;
-  if (typeof url !== "string") return { url: null, erro: "a Stripe não devolveu o endereço do portal" };
-  return { url, erro: null };
+  if (erro) return { id: null, erro };
+  const id = texto(dados?.id);
+  return id ? { id, erro: null } : { id: null, erro: "o Asaas não devolveu o id do cliente" };
 }
 
 /**
- * Confere a assinatura do webhook.
+ * Cria a assinatura mensal.
  *
- * ⚠ Esta função é a fechadura do cofre. Sem ela, qualquer um que descubra o
- * endereço manda um POST dizendo "fulano pagou" e ganha o produto de graça.
- * Por isso ela é escrita à mão, comentada, e testada no portão com assinatura
- * forjada, corpo adulterado e relógio fora da tolerância.
+ * `billingType: UNDEFINED` de propósito: é o que deixa a pessoa escolher Pix,
+ * boleto ou cartão na hora de pagar. Travar em cartão excluiria boa parte de
+ * quem tem oficina.
  *
- * O algoritmo é o da Stripe: o cabeçalho traz `t=<segundos>,v1=<hex>`, e o
- * que se assina é a string `"<t>.<corpo cru>"`. O corpo TEM que ser o cru,
- * byte a byte — reserializar o JSON muda um espaço e derruba a conferência.
+ * `externalReference` = oficina. É por ele (e pelo id da assinatura, que
+ * guardamos) que o webhook descobre de quem é o pagamento — e pagamento sem
+ * dono não vira acesso para ninguém.
  */
-export function conferirAssinatura(opcoes: {
-  corpoCru: string;
-  cabecalho: string | null;
-  segredo: string | null;
-  agoraSegundos?: number;
-  toleranciaSegundos?: number;
-}): { ok: boolean; motivo: string | null } {
-  const { corpoCru, cabecalho, segredo } = opcoes;
-  const tolerancia = opcoes.toleranciaSegundos ?? 300;
-  const agora = opcoes.agoraSegundos ?? Math.floor(Date.now() / 1000);
-
-  if (!segredo) return { ok: false, motivo: "falta STRIPE_WEBHOOK_SECRET no servidor" };
-  if (!cabecalho) return { ok: false, motivo: "requisição sem cabeçalho de assinatura" };
-
-  let t: number | null = null;
-  const assinaturas: string[] = [];
-  for (const parte of cabecalho.split(",")) {
-    const [chaveParte, valor] = parte.trim().split("=", 2);
-    if (chaveParte === "t" && valor) t = Number(valor);
-    if (chaveParte === "v1" && valor) assinaturas.push(valor);
-  }
-  if (t === null || Number.isNaN(t)) return { ok: false, motivo: "cabeçalho sem instante (t)" };
-  if (assinaturas.length === 0) return { ok: false, motivo: "cabeçalho sem assinatura (v1)" };
-
-  // Janela de tempo: sem ela, uma requisição legítima capturada hoje pode ser
-  // reenviada daqui a um mês e continuar valendo.
-  if (Math.abs(agora - t) > tolerancia) {
-    return { ok: false, motivo: `assinatura fora da janela de ${tolerancia}s` };
-  }
-
-  const esperado = createHmac("sha256", segredo).update(`${t}.${corpoCru}`, "utf8").digest("hex");
-  const esperadoBytes = Buffer.from(esperado, "utf8");
-
-  // Comparação em tempo constante: `===` vaza, pelo tempo de resposta, quantos
-  // caracteres iniciais bateram — e isso é o bastante para adivinhar o resto.
-  const bate = assinaturas.some((a) => {
-    const recebido = Buffer.from(a, "utf8");
-    if (recebido.length !== esperadoBytes.length) return false;
-    return timingSafeEqual(recebido, esperadoBytes);
+export async function criarAssinatura(opcoes: {
+  oficinaId: string;
+  clienteId: string;
+  plano: PlanoPago;
+  planoNome: string;
+  centavos: number;
+  primeiroVencimento: string;
+}): Promise<{ id: string | null; erro: string | null }> {
+  const { dados, erro } = await chamar("POST", "/subscriptions", {
+    customer: opcoes.clienteId,
+    billingType: "UNDEFINED",
+    value: opcoes.centavos / 100,
+    nextDueDate: opcoes.primeiroVencimento,
+    cycle: "MONTHLY",
+    description: `Esteira — plano ${opcoes.planoNome}`,
+    externalReference: opcoes.oficinaId,
   });
-
-  return bate ? { ok: true, motivo: null } : { ok: false, motivo: "assinatura não confere" };
+  if (erro) return { id: null, erro };
+  const id = texto(dados?.id);
+  return id ? { id, erro: null } : { id: null, erro: "o Asaas não devolveu o id da assinatura" };
 }
 
-/** Só para o roteiro de verificação montar um cabeçalho legítimo. */
-export function assinarParaTeste(corpoCru: string, segredo: string, t: number): string {
-  const v1 = createHmac("sha256", segredo).update(`${t}.${corpoCru}`, "utf8").digest("hex");
-  return `t=${t},v1=${v1}`;
+/**
+ * O endereço da fatura em aberto — é para onde o dono vai pagar.
+ * Devolve a cobrança mais recente que ainda não foi paga; se todas estiverem
+ * pagas, devolve a última (serve de recibo).
+ */
+export async function faturaDaAssinatura(
+  assinaturaId: string,
+): Promise<{ url: string | null; status: string | null; erro: string | null }> {
+  const { dados, erro } = await chamar("GET", `/subscriptions/${assinaturaId}/payments`);
+  if (erro) return { url: null, status: null, erro };
+  const lista = Array.isArray(dados?.data) ? (dados.data as Json[]) : [];
+  if (lista.length === 0) {
+    return { url: null, status: null, erro: "a assinatura ainda não gerou cobrança" };
+  }
+  const emAberto = lista.find((p) => {
+    const s = texto(p.status);
+    return s === "PENDING" || s === "OVERDUE" || s === "AWAITING_RISK_ANALYSIS";
+  });
+  const escolhida = emAberto ?? lista[lista.length - 1];
+  const url = texto(escolhida.invoiceUrl);
+  return url
+    ? { url, status: texto(escolhida.status), erro: null }
+    : { url: null, status: texto(escolhida.status), erro: "a cobrança não trouxe endereço de pagamento" };
+}
+
+/** Cancelar é remover a assinatura no Asaas: para de gerar cobrança nova. */
+export async function cancelarAssinatura(
+  assinaturaId: string,
+): Promise<{ ok: boolean; erro: string | null }> {
+  const { erro } = await chamar("DELETE", `/subscriptions/${assinaturaId}`);
+  return erro ? { ok: false, erro } : { ok: true, erro: null };
+}
+
+/**
+ * A conferência que substitui a assinatura criptográfica.
+ *
+ * O aviso do Asaas não prova nada — é um POST com um token que pode vazar.
+ * Então, antes de liberar acesso, perguntamos à API **autenticada** qual é o
+ * estado daquela cobrança. Um evento forjado morre aqui: ou a cobrança não
+ * existe, ou ela não está paga.
+ *
+ * Devolve `erro` (e não "não pago") quando não consegue perguntar — a rota
+ * transforma isso em 500 para o Asaas tentar de novo. Rede fora não pode
+ * virar "não pagou" (regra 3).
+ */
+export async function conferirCobranca(cobrancaId: string): Promise<{
+  status: string | null;
+  vencimento: string | null;
+  assinatura: string | null;
+  cliente: string | null;
+  referencia: string | null;
+  sumiu: boolean;
+  erro: string | null;
+}> {
+  const vazio = {
+    status: null, vencimento: null, assinatura: null, cliente: null, referencia: null,
+  };
+  const { dados, erro, httpStatus } = await chamar("GET", `/payments/${cobrancaId}`);
+  // 404 é resposta, não falha: essa cobrança não existe no Asaas — é o que
+  // acontece com um aviso forjado. Devolver erro faria o Asaas reenviar para
+  // sempre algo que nunca vai existir.
+  if (httpStatus === 404) return { ...vazio, sumiu: true, erro: null };
+  if (erro) return { ...vazio, sumiu: false, erro };
+  return {
+    status: texto(dados?.status),
+    vencimento: texto(dados?.dueDate),
+    assinatura: texto(dados?.subscription),
+    cliente: texto(dados?.customer),
+    referencia: texto(dados?.externalReference),
+    sumiu: false,
+    erro: null,
+  };
+}
+
+/** O mesmo, para a assinatura (usado quando o evento é de assinatura). */
+export async function conferirAssinaturaNoProvedor(assinaturaId: string): Promise<{
+  status: string | null;
+  referencia: string | null;
+  sumiu: boolean;
+  erro: string | null;
+}> {
+  const { dados, erro, httpStatus } = await chamar("GET", `/subscriptions/${assinaturaId}`);
+  // 404 não é falha: é a CONFIRMAÇÃO de que a assinatura foi removida. Tratar
+  // como erro faria o Asaas reenviar para sempre um evento de cancelamento
+  // que nunca seria aplicado.
+  if (httpStatus === 404) return { status: null, referencia: null, sumiu: true, erro: null };
+  if (erro) return { status: null, referencia: null, sumiu: false, erro };
+  return {
+    status: texto(dados?.status),
+    referencia: texto(dados?.externalReference),
+    sumiu: false,
+    erro: null,
+  };
+}
+
+/**
+ * Confere o token do webhook.
+ *
+ * Comparação em tempo constante mesmo sendo "só" um token: `===` vaza, pelo
+ * tempo de resposta, quantos caracteres iniciais bateram — e com um segredo
+ * estático, que não muda a cada requisição, isso é explorável com paciência.
+ */
+export function conferirToken(recebido: string | null): { ok: boolean; motivo: string | null } {
+  const esperado = tokenDoWebhook();
+  if (!esperado) return { ok: false, motivo: "falta ASAAS_WEBHOOK_TOKEN no servidor" };
+  if (!recebido) return { ok: false, motivo: "requisição sem token" };
+  const a = Buffer.from(recebido, "utf8");
+  const b = Buffer.from(esperado, "utf8");
+  if (a.length !== b.length) return { ok: false, motivo: "token não confere" };
+  return timingSafeEqual(a, b)
+    ? { ok: true, motivo: null }
+    : { ok: false, motivo: "token não confere" };
 }

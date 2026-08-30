@@ -80,6 +80,31 @@ export function horaCurta(iso: string): string {
   }).format(new Date(iso));
 }
 
+/**
+ * O mesmo dia do mês seguinte, aparando o que não existe: 31/01 vira 28/02
+ * (ou 29/02 em ano bissexto). Existe para a cobrança calcular até quando o
+ * período pago vale, sem inventar 31 de fevereiro.
+ */
+export function mesSeguinte(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const ano = Number(m[1]);
+  const mes = Number(m[2]);
+  const dia = Number(m[3]);
+  const anoAlvo = mes === 12 ? ano + 1 : ano;
+  const mesAlvo = mes === 12 ? 1 : mes + 1;
+  // Dia 0 do mês seguinte ao alvo = último dia do mês alvo.
+  const ultimoDia = new Date(Date.UTC(anoAlvo, mesAlvo, 0)).getUTCDate();
+  const dd = String(Math.min(dia, ultimoDia)).padStart(2, "0");
+  const mm = String(mesAlvo).padStart(2, "0");
+  return `${anoAlvo}-${mm}-${dd}`;
+}
+
+/** O maior de dois dias ISO — comparação de string basta neste formato. */
+export function diaMaior(a: string, b: string): string {
+  return a >= b ? a : b;
+}
+
 /** Situação de prazo — a ÚNICA fonte da cor do produto (regra 5). */
 export type SituacaoPrazo = "ok" | "aperta" | "estourou";
 

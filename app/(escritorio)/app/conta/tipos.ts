@@ -18,6 +18,8 @@ export interface RespostaConta {
   pode_criar?: boolean;
   motivo?: string | null;
   provedor?: string | null;
+  /** Existe assinatura no provedor? A tela usa para oferecer fatura e cancelamento. */
+  tem_assinatura?: boolean;
 }
 
 export interface Membro {

@@ -117,7 +117,23 @@ aqui. É por isso que `avancos.quem` guarda `chao:<acesso_id>` ou
 - **D23** Quem escreve "está pago" é o webhook, com service role. Nenhuma ação
   de tela grava assinatura: bastaria abrir o checkout e fechar a aba.
 - **D24** `lib/cobranca.ts` é a porta única do pagamento, como o `lib/mensagem`
-  é a da mensagem. Trocar Stripe por Asaas é reescrever esse arquivo.
+  é a da mensagem. Trocar de provedor é reescrever esse arquivo — e foi o que
+  aconteceu no D25, custando três arquivos e nenhuma tela.
+- **D25** O provedor é o **Asaas**, não a Stripe: quem paga é dono de oficina no
+  Brasil, e Pix/boleto são o caminho principal, não a alternativa. Ganho de
+  brinde: o preço vive só na tabela `planos` (a assinatura é criada com o valor
+  que mandamos), então some a chance de a landing e a cobrança divergirem.
+- **D26** O webhook do Asaas **não é assinado** — autentica com token estático
+  no cabeçalho. Como token vaza (log, print, curl), o aviso deixou de ser
+  acreditado: todo evento é **conferido de volta na API do Asaas**, autenticado,
+  antes de virar acesso. O aviso virou "vá olhar"; quem decide é a consulta.
+  Não conseguir conferir devolve 500 (o Asaas reenvia) — nunca "não pagou".
+- **D27** Cancelar não tira o acesso na hora: `periodo_ate` continua valendo.
+  Quem cancela no dia 2 pagou até o fim do período; travar na hora seria ficar
+  com o dinheiro e tirar o serviço.
+- **D28** O CPF/CNPJ que o Asaas exige é pedido na hora de assinar (não no
+  cadastro — o teste segue sem fricção) e **não é guardado no nosso banco**.
+  O produto não guarda cadastro; a fronteira vale para o que é nosso também.
 
 Decisão nova entra como D25, D26… com data e motivo, no `04`. Decisão revogada
 não se apaga: ganha a linha "revogada em <data> porque <motivo>".
